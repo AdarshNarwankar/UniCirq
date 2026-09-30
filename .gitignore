@@ -4,3 +4,4 @@ node_modules/
 !.env.example
 *.tsbuildinfo
 work/
+next-env.d.ts

@@ -19,14 +19,14 @@ Open http://127.0.0.1:3000 and choose **Explore the student app**. Seller, Busin
 
 - Separate Student, Business and Admin routes with server-enforced roles.
 - Search/filter sale, rental, hardware and service listings; create/close listings and save items.
-- Campus requests, private conversations, notifications and student profiles.
-- Transaction requests, participant-specific acceptance/handover/completion, rental overlap prevention, cancellation and disputes.
+- Campus requests, private conversations that remain accessible after listing closure, notifications linked to exact records, and student profiles.
+- Reviewed transaction requests, participant-specific confirmations, original request terms, timestamped activity history, rental overlap prevention, cancellation and disputes.
 - Campus/business verification applications, admin review, listing/deal moderation and audit history.
 - Campus business offers, support reports and managed-sale interest intake.
 
 Messages refresh periodically. Payments, uploads, merchandise, storage and managed-sale operations remain modular follow-up work. Orders record participant-confirmed activity, without claiming escrow or payment protection.
 
-See [implementation plan, structure, data model and workflow](docs/IMPLEMENTATION.md).
+See [implementation plan, structure, data model and workflow](docs/IMPLEMENTATION.md) and [exchange workflow and validation](docs/EXCHANGE-FLOW.md).
 
 ## Database setup
 
@@ -92,7 +92,7 @@ npm run build
 npm audit --omit=dev --audit-level=high
 ```
 
-The 31 tests cover policies, real PostgreSQL row policies and command transactions via PGlite, and the actual Better Auth handler with a captured test email sender. They do not verify live email delivery or hosted database privileges. Before launch, smoke-test sign-in and role/campus isolation using the hosted restricted runtime login.
+The 40 tests cover policies, real PostgreSQL row policies and command transactions via PGlite, and the actual Better Auth handler with a captured test email sender. They do not verify live email delivery or hosted database privileges. Before launch, smoke-test sign-in and role/campus isolation using the hosted restricted runtime login.
 
 ## Remaining launch work
 

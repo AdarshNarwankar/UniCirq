@@ -2,14 +2,17 @@ import 'server-only';
 import { withUser } from './db';
 import { demoEnabled } from './config';
 import { demoState, snapshotFor, applyCommand } from '../demo';
-import type { Profile, Snapshot, Command, State } from '../domain';
+import type { Profile, Snapshot, Command, State, Order } from '../domain';
 import { AppError } from '../policy';
-const tables:Record<keyof State,string>={colleges:'colleges',profiles:'profiles',listings:'listings',requests:'student_requests',conversations:'conversations',messages:'messages',orders:'orders',saved:'saved_items',tickets:'support_tickets',notifications:'notifications',verifications:'verification_requests',businesses:'business_profiles',deals:'deals',audit:'audit_logs'};
+const tables:Record<keyof State,string>={colleges:'colleges',profiles:'profiles',listings:'listings',requests:'student_requests',conversations:'conversations',messages:'messages',orders:'orders',orderEvents:'order_events',saved:'saved_items',tickets:'support_tickets',notifications:'notifications',verifications:'verification_requests',businesses:'business_profiles',deals:'deals',audit:'audit_logs'};
 export async function readSnapshot(actor:Profile):Promise<Snapshot>{
  if(demoEnabled())return snapshotFor(demoState(),actor);
  return withUser(actor.id,async db=>{const data:Record<string,unknown>={};for(const [key,table]of Object.entries(tables)){
    const ordered=!['colleges','saved','businesses'].includes(key);
-   const result=await db.query(`SELECT * FROM ${table}${ordered?' ORDER BY created_at DESC':''} LIMIT ${key==='messages'?500:200}`);data[key]=result.rows;
+   const result=key==='orderEvents'
+    ?await db.query('SELECT * FROM order_events WHERE order_id = ANY($1::uuid[]) ORDER BY created_at DESC LIMIT 1200',[(data.orders as Order[]).map(order=>order.id)])
+    :await db.query(`SELECT * FROM ${table}${ordered?' ORDER BY created_at DESC':''} LIMIT ${key==='messages'?500:200}`);
+   data[key]=result.rows;
  }return JSON.parse(JSON.stringify({...data,user:actor,demo:false})) as Snapshot});
 }
 export async function execute(actor:Profile,command:Command){

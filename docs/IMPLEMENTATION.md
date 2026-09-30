@@ -5,7 +5,7 @@ UniCirq — Your Campus, Connected.
 ## Product decisions recovered from Student Marketplace Features
 Student-first, campus-scoped, asset-light marketplace. Zero P2P commission for the pilot. Seed supply from students, clubs and graduating batches. Requests capture unmet demand. Keep conversations and activity records in UniCirq. Trust reflects verification and recorded activity, never an invented credit score. Payments, protection fees, deposits, QR handover, storage and merchandise require later integrations and are not represented as live financial services.
 
-The selected direction is white and cobalt, with compact top navigation, product cards, responsive grids and mobile bottom navigation. This supersedes the earlier visual proposal.
+The selected direction uses navy sidebars, cobalt accents, compact top navigation, campus banners and responsive white cards across Student, Business and Admin. Mobile layouts use a navigation drawer. See MEMBER-DESIGN.md and ADMIN-DESIGN.md.
 
 ## Build sequence
 1. Typed domain, validation, authorization rules and seeded local demo.
@@ -37,7 +37,7 @@ Production uses Better Auth email OTP, PostgreSQL and Resend. Email verification
 The local demo is explicitly enabled, disabled on Vercel and in production, and uses signed HTTP-only sessions for fixed seeded identities. Its state lives in the development server process and resets on restart. Demo identity switching never exists in production.
 
 ## Data model
-Colleges have profiles, listings, requests and deals. Profiles own listings/requests/saves, participate in conversations/orders, and receive notifications. Listings unify sale, rental, hardware and service inventory. Conversations have exactly two participants and immutable listing/request context. Orders reference listing, buyer and seller; state changes require the correct participant. Support tickets optionally reference a participant's order or a visible listing. Verification requests and business profiles are private/admin scoped. Audit logs preserve moderation actor and reason. All money is integer INR paise.
+Colleges have profiles, listings, requests and deals. Profiles own listings/requests/saves, participate in conversations/orders, and receive notifications. Listings unify sale, rental, hardware and service inventory. Conversations have exactly two participants and immutable listing/request context. Orders reference listing, buyer and seller and retain the original title, price, unit, condition, description and meeting place. Immutable order events record the actor, status and time; state changes require the correct participant. Support tickets optionally reference a participant's order or a visible listing. Verification requests and business profiles are private/admin scoped. Audit logs preserve moderation actor and reason. All money is integer INR paise.
 
 ## Workflow
 ```mermaid
@@ -70,4 +70,3 @@ flowchart TD
 ```
 
 There is no Paid state in this release: no payment provider is connected, and activity records never claim escrow, insurance, payment confirmation or deposit protection. QR/OTP handover evidence and provider-confirmed payments are future adapters. In-person inspection and participant confirmation are available now.
-

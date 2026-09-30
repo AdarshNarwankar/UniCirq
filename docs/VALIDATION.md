@@ -2,7 +2,7 @@
 
 Checked locally on 30 September 2026 with Node.js 24.11.1 and Next.js 16.3.7.
 
-- `npm test`: 31 passing tests. Includes Better Auth OTP/session/replay/origin checks, application policies, SQL row policies, role/campus isolation, participant privacy, order transitions, rental overlap prevention and moderation audit writes.
+- `npm test`: 40 passing tests. Includes Better Auth OTP/session/replay/origin checks, application policies, SQL row policies, role/campus isolation, participant privacy, order transitions, rental overlap prevention and moderation audit writes.
 - `npm run typecheck`: passed.
 - `npm run build`: passed, all three role route trees and API handlers generated.
 - `npm audit --omit=dev --audit-level=high`: zero reported vulnerabilities at the time of the check.
