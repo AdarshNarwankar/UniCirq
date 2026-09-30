@@ -1,0 +1,20 @@
+import {test,before,after} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile,readdir} from 'node:fs/promises';
+import {PGlite} from '@electric-sql/pglite';
+import type {Pool} from 'pg';
+import {defineAuth} from '../src/lib/auth-definition';
+const db=new PGlite();
+const client={async query(sql:string,params:unknown[]=[]){const r=await db.query(sql,params);return {rows:r.rows,rowCount:r.affectedRows??r.rows.length,command:sql.trim().split(/\s+/)[0].toUpperCase()}},release(){}};
+const testPool={connect:async()=>client,end:async()=>{}} as unknown as Pool;
+let code='';let cookie='';
+const origin='http://127.0.0.1:3900';
+const auth=defineAuth({database:testPool,origin,secret:'test-only-auth-secret-with-at-least-thirty-two-characters',sendCode:async(_,otp)=>{code=otp}});
+async function request(path:string,data?:object,originHeader=origin){return auth.handler(new Request(origin+'/api/auth'+path,{method:data?'POST':'GET',headers:{'Content-Type':'application/json',origin:originHeader,'x-forwarded-for':'127.0.0.1',...(cookie?{cookie}:{})},...(data?{body:JSON.stringify(data)}:{})}))}
+before(async()=>{for(const f of(await readdir('database/migrations')).sort())await db.exec(await readFile('database/migrations/'+f,'utf8'));await db.exec('CREATE ROLE test_runtime NOLOGIN; GRANT unicirq_app TO test_runtime; GRANT USAGE ON SCHEMA public TO test_runtime; GRANT SELECT, INSERT, UPDATE, DELETE ON "user", "session", account, verification, "rateLimit" TO test_runtime; SET ROLE test_runtime;')});
+after(async()=>{await db.close()});
+test('production auth configuration sends hashed OTP using the migrated schema',async()=>{const response=await request('/email-otp/send-verification-otp',{email:'student@example.test',type:'sign-in'});assert.equal(response.status,200,await response.text());assert.match(code,/^\d{6}$/);const rows=await db.query<{value:string}>('SELECT value FROM verification');assert.ok(rows.rows.length);assert.ok(!rows.rows.some(r=>r.value.includes(code)))});
+test('email OTP establishes a session and provisions an unverified Student',async()=>{const r=await request('/sign-in/email-otp',{email:'student@example.test',otp:code,name:'Test Student',role:'admin',verified:true});const body=await r.json();assert.equal(r.status,200,JSON.stringify(body));assert.equal(body.user.emailVerified,true);const cookies=r.headers.getSetCookie();assert.ok(cookies.some(c=>/HttpOnly/i.test(c)));cookie=cookies.map(c=>c.split(';')[0]).join('; ');await db.exec('SET ROLE unicirq_app');await db.query("SELECT set_config('app.user_id',$1,false)",[body.user.id]);const profile=await db.query<{role:string;verified:boolean}>('SELECT role,verified FROM profiles WHERE id=$1',[body.user.id]);assert.equal(profile.rows[0].role,'student');assert.equal(profile.rows[0].verified,false);await db.exec('RESET ROLE; SET ROLE test_runtime');});
+test('verified server session resolves while forged sessions do not',async()=>{const valid=await request('/get-session');const value=await valid.json();assert.equal(value.user.email,'student@example.test');const saved=cookie;cookie='better-auth.session_token=forged';const bad=await request('/get-session');assert.equal(await bad.json(),null);cookie=saved});
+test('OTP cannot be replayed and cross-origin sign-in is blocked',async()=>{const replay=await request('/sign-in/email-otp',{email:'student@example.test',otp:code});assert.ok(replay.status>=400);const originAttempt=await request('/email-otp/send-verification-otp',{email:'other@example.test',type:'sign-in'},'https://attacker.example');assert.equal(originAttempt.status,403)});
+test('sign out revokes the database session',async()=>{const out=await request('/sign-out',{});assert.equal(out.status,200);const session=await request('/get-session');assert.equal(await session.json(),null)});
