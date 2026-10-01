@@ -5,3 +5,5 @@ node_modules/
 *.tsbuildinfo
 work/
 next-env.d.ts
+src/generated/prisma/
+.vercel/

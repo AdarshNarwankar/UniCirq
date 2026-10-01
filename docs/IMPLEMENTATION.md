@@ -25,14 +25,16 @@ src/components/          Shared shell, forms, listing cards and module screens
 src/lib/domain.ts        Entities and command validation
 src/lib/policy.ts        Role, campus, ownership and transaction rules
 src/lib/demo.ts          Local-only seeded repository
-src/lib/server/          Verified sessions and production PostgreSQL adapter
+src/lib/server/          Verified sessions, Prisma auth and protected PostgreSQL adapter
+prisma/schema.prisma     Auth-only ORM models; generated client is ignored
+scripts/                 SQL migrations and private live-readiness checks
 database/migrations/     Normalized schema, RLS, RPC, rate limits and audit log
 database/seed.example.sql        Public campus catalog (no fabricated production accounts)
 tests/                  Policy, validation and PostgreSQL/RLS integration checks
 ```
 
 ## Roles and identity
-Production uses Better Auth email OTP, PostgreSQL and Resend. Email verification and campus verification are separate. New accounts receive an unverified Student profile from a database trigger; metadata cannot assign roles. Administrators approve campus and business applications. A trusted operator bootstraps the first Admin. Better Auth validates database sessions on the server; PostgreSQL profiles determine role, campus and suspension status. Layouts and API commands independently enforce authorization. The restricted runtime login can manage auth tables and assume unicirq_app. Every application transaction uses SET LOCAL ROLE and a transaction-local user ID taken from the verified session. Row-level policies constrain reads; direct application-table writes are denied. A transactional security-definer command function rechecks roles, ownership, campus and state transitions. Never deploy with the migration-owner login.
+Production uses Better Auth email OTP, PostgreSQL with Prisma ORM for authentication tables, and Resend. The auth-only Prisma client shares the restricted runtime pool; SQL migrations remain authoritative for all schema, grants, triggers and policies. Marketplace data continues through the existing PostgreSQL transactions and command function. See PRODUCTION-SETUP.md for configuration and read-only readiness checks. Email verification and campus verification are separate. New accounts receive an unverified Student profile from a database trigger; metadata cannot assign roles. Administrators approve campus and business applications. A trusted operator bootstraps the first Admin. Better Auth validates database sessions on the server; PostgreSQL profiles determine role, campus and suspension status. Layouts and API commands independently enforce authorization. The restricted runtime login can manage auth tables and assume unicirq_app. Every application transaction uses SET LOCAL ROLE and a transaction-local user ID taken from the verified session. Row-level policies constrain reads; direct application-table writes are denied. A transactional security-definer command function rechecks roles, ownership, campus and state transitions. Never deploy with the migration-owner login.
 
 The local demo is explicitly enabled, disabled on Vercel and in production, and uses signed HTTP-only sessions for fixed seeded identities. Its state lives in the development server process and resets on restart. Demo identity switching never exists in production.
 

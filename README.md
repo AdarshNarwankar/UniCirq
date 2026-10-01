@@ -1,10 +1,10 @@
 # UniCirq — Your Campus, Connected.
 
-A student-first campus marketplace foundation in `D:\Adarsh\UniCirq`. White-and-cobalt responsive UI, Next.js App Router, TypeScript, PostgreSQL, Better Auth email OTP and Resend. Neon is a suitable database host; the app uses standard PostgreSQL and does not depend on Supabase.
+A student-first campus marketplace foundation in `D:\Adarsh\UniCirq`. White-and-cobalt responsive UI, Next.js App Router, TypeScript, PostgreSQL with Prisma ORM, Better Auth email OTP and Resend. PostgreSQL hosting is provider-independent; Neon is optional and Supabase is not used.
 
 ## Local demo
 
-Use Node.js 22 or newer. From this project folder:
+Use Node.js 22.12 or newer (Node.js 24 recommended). From this project folder:
 
 ```powershell
 npm ci
@@ -28,6 +28,8 @@ Messages refresh periodically. Payments, uploads, merchandise, storage and manag
 
 See [implementation plan, structure, data model and workflow](docs/IMPLEMENTATION.md) and [exchange workflow and validation](docs/EXCHANGE-FLOW.md).
 
+See [PostgreSQL + Prisma setup and live readiness checks](docs/PRODUCTION-SETUP.md). Prisma manages authentication tables; the marketplace retains its SQL transactions and row policies. SQL migrations remain authoritative. Do not use Prisma db push/migrate against this auth-only schema.
+
 ## Database setup
 
 Use a dedicated PostgreSQL database, such as Neon. Keep migration-owner credentials separate from the runtime login. The migration login needs permission to create roles and schema objects. Use the provider's direct connection for migrations.
@@ -46,7 +48,7 @@ GRANT unicirq_app TO unicirq_runtime;
 
 The runtime login must not own application tables, inherit an owner/admin role, have `BYPASSRLS`, or have schema-creation privileges. Check inherited as well as direct permissions. Do not grant application-table writes. Auth manages its own tables; application access uses row policies and a permission-checking command function.
 
-4. Set `DATABASE_URL` to this runtime login's connection, preferably pooled with TLS. Do not disable certificate validation.
+4. Set `DATABASE_URL` to this runtime login's connection, preferably pooled, with an explicit database name and `sslmode=verify-full` for remote connections. Do not disable certificate validation.
 5. Insert the real pilot college using the operator connection. `database/seed.example.sql` contains an optional fictional campus catalog, not real campus verification data.
 
 ## Email sign-in and environment
@@ -57,7 +59,7 @@ All variables below are server-only:
 | --- | --- |
 | `UNICIRQ_DEMO_MODE` | `false` for database-backed use |
 | `APP_URL` | Exact site origin, e.g. `https://your-project.vercel.app` |
-| `DATABASE_URL` | Restricted runtime PostgreSQL connection with TLS |
+| `DATABASE_URL` | Restricted runtime PostgreSQL connection; remote `sslmode=verify-full` |
 | `BETTER_AUTH_SECRET` | Cryptographically random secret, at least 32 characters |
 | `RESEND_API_KEY` | Resend key for your verified sending domain |
 | `EMAIL_FROM` | Verified sender, e.g. `UniCirq <hello@your-domain.example>` |
@@ -92,7 +94,7 @@ npm run build
 npm audit --omit=dev --audit-level=high
 ```
 
-The 40 tests cover policies, real PostgreSQL row policies and command transactions via PGlite, and the actual Better Auth handler with a captured test email sender. They do not verify live email delivery or hosted database privileges. Before launch, smoke-test sign-in and role/campus isolation using the hosted restricted runtime login.
+The 65 tests cover policies, real PostgreSQL row policies and command transactions via PGlite, and the actual Better Auth handler through both PostgreSQL and Prisma adapters, configuration/TLS validation, sanitized email failures and read-only readiness audits with a captured test email sender. They do not verify live email delivery or hosted database privileges. Before launch, smoke-test sign-in and role/campus isolation using the hosted restricted runtime login.
 
 ## Remaining launch work
 

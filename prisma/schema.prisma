@@ -1,0 +1,83 @@
+// Authentication models mirror database/migrations/001_auth.sql.
+// SQL migrations remain authoritative for tables, triggers, grants and RLS.
+// Application data is accessed through withUser; keep it out of this client.
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id @db.Uuid
+  name          String    @db.Text
+  email         String    @unique(map: "user_email_key") @db.Text
+  emailVerified Boolean   @default(false)
+  image         String?   @db.Text
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @default(now()) @db.Timestamptz(6)
+  sessions      Session[]
+  accounts      Account[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @db.Uuid
+  expiresAt DateTime @db.Timestamptz(6)
+  token     String   @unique(map: "session_token_key") @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @db.Timestamptz(6)
+  ipAddress String?  @db.Text
+  userAgent String?  @db.Text
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId], map: "session_user_idx")
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @db.Uuid
+  accountId             String    @db.Text
+  providerId            String    @db.Text
+  userId                String    @db.Uuid
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(6)
+  scope                 String?   @db.Text
+  password              String?   @db.Text
+  createdAt             DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime  @default(now()) @db.Timestamptz(6)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([providerId, accountId], map: "account_providerId_accountId_key")
+  @@index([userId], map: "account_user_idx")
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @db.Uuid
+  identifier String   @db.Text
+  value      String   @db.Text
+  expiresAt  DateTime @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([identifier], map: "verification_identifier_idx")
+  @@map("verification")
+}
+
+model RateLimit {
+  id          String @id @db.Uuid
+  key         String @unique(map: "rateLimit_key_key") @db.Text
+  count       Int
+  lastRequest BigInt
+
+  @@map("rateLimit")
+}

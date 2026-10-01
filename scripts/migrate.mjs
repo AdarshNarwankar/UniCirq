@@ -1,22 +1,31 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import pg from 'pg';
+import { postgresUrlIssue } from '../src/lib/environment.ts';
 
 const connectionString = process.env.MIGRATION_DATABASE_URL;
-if (!connectionString) throw new Error('Set MIGRATION_DATABASE_URL to the migration-owner connection.');
-const client = new pg.Client({ connectionString, connectionTimeoutMillis: 15000 });
+let applying;
+let client;
 try {
+  if (!connectionString || postgresUrlIssue(connectionString)) {
+    throw new Error('invalid-owner-configuration');
+  }
+  client = new pg.Client({ connectionString, connectionTimeoutMillis: 15000 });
   await client.connect();
   await client.query("SELECT pg_advisory_lock(hashtext('unicirq_migrations'))");
   await client.query('CREATE TABLE IF NOT EXISTS unicirq_migrations (name text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now())');
   const directory = new URL('../database/migrations/', import.meta.url);
   const files = (await readdir(directory)).filter(name => /^\d+_.+\.sql$/.test(name)).sort();
   for (const name of files) {
+    applying = name;
     const sql = await readFile(new URL(name, directory), 'utf8');
     const checksum = createHash('sha256').update(sql).digest('hex');
     const previous = await client.query('SELECT checksum FROM unicirq_migrations WHERE name=$1', [name]);
     if (previous.rowCount) {
-      if (previous.rows[0].checksum !== checksum) throw new Error(`Applied migration changed: ${name}. Add a new migration instead.`);
+      if (previous.rows[0].checksum !== checksum) {
+        console.error(`Applied migration changed: ${name}. Restore it and add a new migration instead.`);
+        throw new Error('checksum-mismatch');
+      }
       console.log(`Already applied: ${name}`);
       continue;
     }
@@ -31,9 +40,9 @@ try {
       throw error;
     }
   }
-} catch (error) {
-  console.error('Migration failed:', error instanceof Error ? error.message : 'Unknown error');
+} catch {
+  console.error(applying ? `Migration failed at ${applying}. Check the operator permissions and database dashboard.` : 'Migration setup failed. Set MIGRATION_DATABASE_URL to a separate valid owner connection with verified TLS.');
   process.exitCode = 1;
 } finally {
-  await client.end();
+  try { await client?.end(); } catch { /* Keep connection details out of logs. */ }
 }
