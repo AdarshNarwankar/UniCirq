@@ -1,5 +1,5 @@
 import type { State, Profile, Listing } from './domain';
-export const ids={campus:'10000000-0000-4000-8000-000000000001',otherCampus:'10000000-0000-4000-8000-000000000002',student:'20000000-0000-4000-8000-000000000001',seller:'20000000-0000-4000-8000-000000000002',tutor:'20000000-0000-4000-8000-000000000003',business:'20000000-0000-4000-8000-000000000004',admin:'20000000-0000-4000-8000-000000000005',unverified:'20000000-0000-4000-8000-000000000006',outsider:'20000000-0000-4000-8000-000000000007'};
+export const ids={campus:'10000000-0000-4000-8000-000000000001',otherCampus:'10000000-0000-4000-8000-000000000002',student:'20000000-0000-4000-8000-000000000001',seller:'20000000-0000-4000-8000-000000000002',tutor:'20000000-0000-4000-8000-000000000003',business:'20000000-0000-4000-8000-000000000004',admin:'20000000-0000-4000-8000-000000000005',unverified:'20000000-0000-4000-8000-000000000006',outsider:'20000000-0000-4000-8000-000000000007',pendingStudent:'20000000-0000-4000-8000-000000000008'};
 export const seedId=(prefix:number,n:number)=>`${prefix}0000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 export function seedState():State {
  const now=Date.now();const ago=(hours:number)=>new Date(now-hours*3600000).toISOString();
@@ -9,7 +9,8 @@ export function seedState():State {
   {id:ids.tutor,name:'Kabir Anand',role:'student',college_id:ids.campus,verified:true,bio:'Robotics club · happy to help with your next project.',course:'Electronics',year:'3rd year',avatar:'KA',suspended:false,created_at:ago(800)},
   {id:ids.business,name:'The Daily Grind',role:'business',college_id:ids.campus,verified:true,bio:'Your neighbourhood coffee stop.',course:'',year:'',avatar:'DG',suspended:false,created_at:ago(500)},
   {id:ids.admin,name:'Campus Operations',role:'admin',college_id:ids.campus,verified:true,bio:'UniCirq central team',course:'',year:'',avatar:'UC',suspended:false,created_at:ago(1000)},
-  {id:ids.unverified,name:'New Student',role:'student',college_id:ids.campus,verified:false,bio:'',course:'',year:'1st year',avatar:'NS',suspended:false,created_at:ago(1)},
+  {id:ids.unverified,name:'New Student',role:'student',college_id:null,verified:false,bio:'',course:'',year:'1st year',avatar:'NS',suspended:false,created_at:ago(1)},
+  {id:ids.pendingStudent,name:'Maya Desai',role:'student',college_id:ids.campus,verified:false,bio:'Fictional demo student awaiting campus review.',course:'Computer Science',year:'1st year',avatar:'MD',suspended:false,created_at:ago(2)},
   {id:ids.outsider,name:'Other Campus Student',role:'student',college_id:ids.otherCampus,verified:true,bio:'',course:'',year:'',avatar:'OC',suspended:false,created_at:ago(1)}
  ];
  const rows:[string,string,Listing['kind'],string,number,string,string,string][]=[
@@ -41,7 +42,7 @@ export function seedState():State {
  saved:[{user_id:ids.student,listing_id:seedId(3,1)},{user_id:ids.student,listing_id:seedId(3,4)}],
  tickets:[{id:seedId(8,1),owner_id:ids.student,college_id:ids.campus,order_id:null,listing_id:null,subject:'Help with a campus pickup',body:'Where should I meet another student for my first exchange?',type:'support',status:'open',resolution:'',created_at:ago(6)}],
  notifications:[{id:seedId(9,1),user_id:ids.student,title:'Riya replied to your message',body:'Your headphones conversation has a new reply.',href:'/student/messages?conversation='+conversationId,read:false,created_at:ago(1)},{id:seedId(9,2),user_id:ids.student,title:'Your camera request was accepted',body:'Agree on a pickup time and inspect the item before confirming handover.',href:'/student/activity?order='+seedId(7,1),read:false,created_at:ago(5)},{id:seedId(9,3),user_id:ids.student,title:'You’re part of the campus circle',body:'Your campus is verified. You can now list, request and connect.',href:'/student/profile',read:true,created_at:ago(48)}],
- verifications:[{id:seedId(8,2),user_id:ids.unverified,college_id:ids.campus,kind:'campus',detail:'First-year student. Please arrange a campus email check with the admissions desk.',status:'pending',reason:'',created_at:ago(1)}],
+ verifications:[{id:seedId(8,2),user_id:ids.pendingStudent,college_id:ids.campus,kind:'campus',detail:'First-year student. Please arrange a campus email check with the admissions desk.',status:'pending',reason:'',created_at:ago(1)}],
  businesses:[{id:seedId(8,3),owner_id:ids.business,college_id:ids.campus,name:'The Daily Grind',category:'Café & study spot',description:'Good coffee, quiet corners, and a student-friendly menu.',location:'Opposite north gate · 300 m',verified:true}],
  deals:[{id:seedId(8,4),business_id:seedId(8,3),owner_id:ids.business,college_id:ids.campus,title:'Your study break, 20% better.',description:'20% off coffee and sandwiches. Show your verified campus profile. One use per visit.',code:'CAMPUS20',expires_on:new Date(now+30*86400000).toISOString().slice(0,10),status:'active',created_at:ago(24)}],audit:[]};
 }

@@ -17,7 +17,7 @@ export async function readSnapshot(actor:Profile):Promise<Snapshot>{
 }
 export async function execute(actor:Profile,command:Command){
  if(demoEnabled())return applyCommand(demoState(),actor,command);
- try{return await withUser(actor.id,async db=>{const result=await db.query('SELECT unicirq_command($1::jsonb) AS result',[JSON.stringify(command)]);return result.rows[0].result as {id?:string}})}catch(error){
+ try{return await withUser(actor.id,async db=>{const result=await db.query(command.type==='choose_university'?'SELECT app_choose_university($1::jsonb) AS result':'SELECT unicirq_command($1::jsonb) AS result',[JSON.stringify(command)]);return result.rows[0].result as {id?:string}})}catch(error){
   const e=error as {code?:string;message?:string};if(e.code==='P0001')throw new AppError(e.message??'Action not allowed',409);if(e.code==='42501')throw new AppError('You do not have access to this action.',403);console.error('UniCirq database command failed:',e.code);throw new AppError('Unable to save. Please try again.',503);
  }
 }

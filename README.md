@@ -1,6 +1,6 @@
 # UniCirq — Your Campus, Connected.
 
-A student-first campus marketplace foundation in `D:\Adarsh\UniCirq`. White-and-cobalt responsive UI, Next.js App Router, TypeScript, PostgreSQL with Prisma ORM, Better Auth email OTP and Resend. PostgreSQL hosting is provider-independent; Neon is optional and Supabase is not used.
+A student-first campus marketplace foundation in `D:\Adarsh\UniCirq`. White-and-cobalt responsive UI, Next.js App Router, TypeScript, PostgreSQL with Prisma ORM, Better Auth email/password, email OTP, Google OAuth and Resend. PostgreSQL hosting is provider-independent; Neon is optional and Supabase is not used.
 
 ## Local demo
 
@@ -29,6 +29,8 @@ Messages refresh periodically. Payments, uploads, merchandise, storage and manag
 See [implementation plan, structure, data model and workflow](docs/IMPLEMENTATION.md) and [exchange workflow and validation](docs/EXCHANGE-FLOW.md).
 
 See [PostgreSQL + Prisma setup and live readiness checks](docs/PRODUCTION-SETUP.md). Prisma manages authentication tables; the marketplace retains its SQL transactions and row policies. SQL migrations remain authoritative. Do not use Prisma db push/migrate against this auth-only schema.
+
+See [login, signup, Google and university onboarding](docs/AUTHENTICATION.md). New students choose a supported university after signing in; email verification and campus verification remain separate.
 
 ## Database setup
 
@@ -63,6 +65,8 @@ All variables below are server-only:
 | `BETTER_AUTH_SECRET` | Cryptographically random secret, at least 32 characters |
 | `RESEND_API_KEY` | Resend key for your verified sending domain |
 | `EMAIL_FROM` | Verified sender, e.g. `UniCirq <hello@your-domain.example>` |
+| `GOOGLE_CLIENT_ID` | Google OAuth Web application client ID |
+| `GOOGLE_CLIENT_SECRET` | Matching private Google OAuth client secret |
 
 Never prefix secrets with `NEXT_PUBLIC_`, commit them, or log them. `.env.local` is ignored. Local database mode uses `APP_URL=http://127.0.0.1:3000`. Restart after changing environment variables.
 
@@ -94,7 +98,7 @@ npm run build
 npm audit --omit=dev --audit-level=high
 ```
 
-The 65 tests cover policies, real PostgreSQL row policies and command transactions via PGlite, and the actual Better Auth handler through both PostgreSQL and Prisma adapters, configuration/TLS validation, sanitized email failures and read-only readiness audits with a captured test email sender. They do not verify live email delivery or hosted database privileges. Before launch, smoke-test sign-in and role/campus isolation using the hosted restricted runtime login.
+The 108 tests cover policies, real PostgreSQL row policies and command transactions via PGlite, and the actual Better Auth handler through both PostgreSQL and Prisma adapters, configuration/TLS validation, sanitized email failures and read-only readiness audits with a captured test email sender. They do not verify live email delivery or hosted database privileges. Google callback tests use mocked provider tokens and keys. Before launch, smoke-test sign-in and role/campus isolation using the hosted restricted runtime login.
 
 ## Remaining launch work
 

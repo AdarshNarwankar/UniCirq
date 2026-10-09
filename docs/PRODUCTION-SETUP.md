@@ -4,6 +4,8 @@ UniCirq uses Prisma ORM 7.10 for Better Auth's user, session, account, verificat
 
 Marketplace reads still run under a transaction-local identity and PostgreSQL row policies. All marketplace writes still go through the protected command function. SQL migrations in `database/migrations` remain the source of truth for the database, including triggers, policies and grants. Do **not** run `prisma db push`, `prisma migrate dev` or Prisma Migrate against this database: the Prisma schema intentionally contains only authentication tables.
 
+Login/signup also support verified email/password and Google, with required university onboarding. See [authentication setup and verification](AUTHENTICATION.md).
+
 ## 1. Choose a PostgreSQL host
 
 Use a dedicated database whose operator account can create roles and whose runtime connection can authenticate as a separate restricted login. Prisma ORM works with standard PostgreSQL; Neon is optional. Prisma Postgres is a separate hosting product. Its documented pooled/direct connection strings share credentials, so choosing a direct connection alone does not separate owner and runtime privileges. Verify custom login/role support before using any host with UniCirq's security model.
@@ -22,6 +24,8 @@ MIGRATION_DATABASE_URL=SEPARATE_DIRECT_OPERATOR_CONNECTION
 BETTER_AUTH_SECRET=RANDOM_SECRET_AT_LEAST_32_CHARACTERS
 RESEND_API_KEY=VERIFIED_DOMAIN_SENDING_KEY
 EMAIL_FROM="UniCirq <signin@YOUR_VERIFIED_DOMAIN>"
+GOOGLE_CLIENT_ID=GOOGLE_WEB_APPLICATION_CLIENT_ID
+GOOGLE_CLIENT_SECRET=MATCHING_PRIVATE_GOOGLE_CLIENT_SECRET
 ```
 
 These are placeholders, not usable credentials. Generate the auth secret with a trusted password generator. Remote database URLs must specify a database name and `sslmode=verify-full` to validate the server certificate and hostname. Local loopback databases may omit TLS. Do not disable certificate validation.

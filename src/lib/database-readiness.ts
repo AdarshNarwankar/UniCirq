@@ -11,7 +11,7 @@ export interface MigrationChecksum { name: string; checksum: string }
 export const authTables = ['user', 'session', 'account', 'verification', 'rateLimit'] as const;
 export const applicationTables = ['colleges', 'profiles', 'listings', 'student_requests', 'conversations', 'messages', 'orders', 'order_events', 'saved_items', 'support_tickets', 'notifications', 'verification_requests', 'business_profiles', 'deals', 'audit_logs', 'action_limits'] as const;
 const readableApplicationTables = applicationTables.filter(name => name !== 'action_limits');
-const accessFunctions = ['app_user_id()', 'app_is_admin()', 'app_campus()', 'app_active()', 'app_participant(uuid)', 'app_order_listing(uuid)', 'app_conversation_listing(uuid)', 'unicirq_command(jsonb)'];
+const accessFunctions = ['app_user_id()', 'app_is_admin()', 'app_campus()', 'app_active()', 'app_participant(uuid)', 'app_order_listing(uuid)', 'app_conversation_listing(uuid)', 'unicirq_command(jsonb)', 'app_choose_university(jsonb)'];
 const forbiddenRoles = ['pg_read_all_data', 'pg_write_all_data', 'pg_read_server_files', 'pg_write_server_files', 'pg_execute_server_program'];
 
 function finish(checks: ReadinessCheck[]): DatabaseReadinessReport { return { ok: checks.every(check => check.ok), checks }; }

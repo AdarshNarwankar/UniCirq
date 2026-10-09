@@ -3,6 +3,7 @@ export type Role = 'student' | 'business' | 'admin';
 export type Kind = 'sale' | 'rental' | 'hardware' | 'service';
 export type OrderStatus = 'requested' | 'accepted' | 'handed_over' | 'completed' | 'cancelled' | 'disputed';
 export interface College { id:string; name:string; short_name:string; domain:string; city:string }
+export type UniversityOption = Pick<College,'id'|'name'|'short_name'|'city'>;
 export interface Profile { id:string; name:string; role:Role; college_id:string|null; verified:boolean; bio:string; course:string; year:string; avatar:string; suspended:boolean; created_at:string }
 export interface Listing { id:string; owner_id:string; college_id:string; title:string; description:string; kind:Kind; category:string; price:number; unit:string; condition:string; image:string; location:string; status:'active'|'pending'|'removed'|'closed'; created_at:string }
 export interface StudentRequest { id:string; owner_id:string; college_id:string; title:string; description:string; category:string; budget:number; status:'open'|'fulfilled'; created_at:string }
@@ -26,6 +27,7 @@ const detail = z.string().trim().min(10).max(2000);
 const money = z.number().int().min(0).max(100000000);
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>!Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0,10)===v, 'Use a valid date');
 export const commandSchema = z.discriminatedUnion('type',[
+ z.object({type:z.literal('choose_university'),college_id:id,name:z.string().trim().min(2).max(60),course:z.string().trim().max(80).optional(),year:z.string().trim().max(20).optional()}),
  z.object({type:z.literal('create_listing'),title:short,description:detail,kind:z.enum(['sale','rental','hardware','service']),category:short,price:money,unit:z.enum(['item','day','hour','session','project']),condition:z.enum(['Like new','Good','Fair','New','Service']),location:short}).refine(v=>v.kind==='rental'?v.unit==='day':v.kind==='service'?['hour','session','project'].includes(v.unit):v.unit==='item','Choose a valid pricing unit'),
  z.object({type:z.literal('save_listing'),listing_id:id}),
  z.object({type:z.literal('close_listing'),listing_id:id}),

@@ -1,7 +1,16 @@
 import 'server-only';
-import { inspectRuntimeEnvironment, originIssue } from '../environment';
+import { authCapabilitiesFor, originIssue } from '../environment';
 export const demoEnabled = () => process.env.UNICIRQ_DEMO_MODE === 'true' && process.env.NODE_ENV !== 'production' && !process.env.VERCEL;
-export const authConfigured = () => inspectRuntimeEnvironment(process.env).ok;
+export const authenticationCapabilities = () => {
+  const methods = authCapabilitiesFor(process.env);
+  return demoEnabled() ? { ...methods, email: false, google: false } : methods;
+};
+export const authConfigured = () => {
+  const methods = authenticationCapabilities();
+  return methods.base && (methods.email || methods.google);
+};
+export const emailConfigured = () => authenticationCapabilities().email;
+export const googleConfigured = () => authenticationCapabilities().google;
 export function appOrigin() {
   const value = process.env.APP_URL;
   if (!value || originIssue(value, process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL)))

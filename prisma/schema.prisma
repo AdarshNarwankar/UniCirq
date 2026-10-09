@@ -1,4 +1,4 @@
-// Authentication models mirror database/migrations/001_auth.sql.
+// Authentication models mirror SQL migrations 001 and 006.
 // SQL migrations remain authoritative for tables, triggers, grants and RLS.
 // Application data is accessed through withUser; keep it out of this client.
 generator client {
@@ -62,7 +62,7 @@ model Account {
 }
 
 model Verification {
-  id         String   @id @db.Uuid
+  id         String   @id @db.Text
   identifier String   @db.Text
   value      String   @db.Text
   expiresAt  DateTime @db.Timestamptz(6)
