@@ -87,6 +87,50 @@ before(async () => {
 });
 after(async () => { await prisma.$disconnect(); await db.close(); });
 
+test('account security actions validate password ownership and revoke only owned sessions', async (t) => {
+  cookie = ''; requestIp = '127.0.0.31';
+  const email = 'settings-owner@example.test', password = 'Settings-password-123';
+  const signup = await request('/sign-up/email', { name: 'Settings owner', email, password });
+  assert.equal(signup.status, 200);
+  const verified = await request('/email-otp/verify-email', { email, password, otp: collectedCodes.get(email + ':email-verification') });
+  assert.equal(verified.status, 200); absorbCookies(verified);
+  const current = await (await request('/get-session')).json();
+  const other = await prisma.session.create({ data: { id: crypto.randomUUID(), userId: current.user.id, token: 'test-only-second-device', expiresAt: new Date(Date.now() + 60000) } });
+  const outsider = await prisma.user.create({ data: { id: crypto.randomUUID(), name: 'Other settings owner', email: 'settings-outsider@example.test', emailVerified: true } });
+  const foreign = await prisma.session.create({ data: { id: crypto.randomUUID(), userId: outsider.id, token: 'test-only-foreign-device', expiresAt: new Date(Date.now() + 60000) } });
+  await t.test('list and revoke actions cannot operate on another user’s session', async () => {
+    const sessions = await (await request('/list-sessions')).json();
+    assert.equal(sessions.length, 2); assert.ok(sessions.every((value: { userId: string }) => value.userId === current.user.id));
+    assert.equal((await request('/revoke-session', { token: foreign.token })).status, 200);
+    assert.equal(await prisma.session.count({ where: { id: foreign.id } }), 1);
+  });
+  await t.test('invalid password and cross-origin mutations leave every session intact', async () => {
+    const invalid = await request('/change-password', { currentPassword: 'wrong-password-123', newPassword: 'Replacement-password-456', revokeOtherSessions: true });
+    assert.equal(invalid.status, 400);
+    const crossOrigin = await request('/revoke-other-sessions', {}, 'https://attacker.example');
+    assert.equal(crossOrigin.status, 403);
+    assert.equal(await prisma.session.count({ where: { userId: current.user.id } }), 2);
+  });
+  await t.test('correct password change rotates the cookie and removes older devices', async () => {
+    const changed = await request('/change-password', { currentPassword: password, newPassword: 'Replacement-password-456', revokeOtherSessions: true });
+    assert.equal(changed.status, 200); absorbCookies(changed);
+    assert.equal(await prisma.session.count({ where: { id: other.id } }), 0);
+    assert.equal(await prisma.session.count({ where: { id: current.session.id } }), 0);
+    assert.equal(await prisma.session.count({ where: { userId: current.user.id } }), 1);
+    assert.equal(await prisma.session.count({ where: { id: foreign.id } }), 1);
+    const renewed = await (await request('/get-session')).json(); assert.equal(renewed.user.id, current.user.id);
+    const old = await request('/sign-in/email', { email, password }); assert.equal(old.status, 401);
+    const valid = await request('/sign-in/email', { email, password: 'Replacement-password-456' }); assert.equal(valid.status, 200); absorbCookies(valid);
+  });
+  await t.test('sign out other sessions keeps the current session and foreign accounts', async () => {
+    const response = await request('/revoke-other-sessions', {}); assert.equal(response.status, 200);
+    assert.equal(await prisma.session.count({ where: { userId: current.user.id } }), 1);
+    assert.equal(await prisma.session.count({ where: { id: foreign.id } }), 1);
+    assert.equal((await (await request('/get-session')).json()).user.id, current.user.id);
+  });
+  await request('/sign-out', {}); cookie = ''; requestIp = '127.0.0.1';
+});
+
 test('Prisma-backed email authentication preserves the restricted PostgreSQL workflow', async (t) => {
   let userId = '';
   await t.test('OTP is persisted as a hash using the SQL schema', async () => {

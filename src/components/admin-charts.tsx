@@ -7,7 +7,7 @@ export type ChartRow = { label: string; detail?: string; values: Record<string, 
 export type ChartDatum = { label: string; value: number; color?: string };
 type Format = 'count' | 'currency';
 type SeriesProps = { title: string; data: ChartRow[]; series: ChartSeries[]; format?: Format; compact?: boolean };
-const palette = ['#2457eb', '#829cf2', '#183466', '#39a7b4', '#8b6ec8', '#c2cdeb'];
+const palette = ['#2457eb', '#829cf2', '#587fa6', '#39a7b4', '#8b6ec8', '#c2cdeb'];
 const countFormatter = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
 const moneyFormatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
 const valid = (value: number | undefined) => typeof value === 'number' && Number.isFinite(value) ? Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, value)) : 0;
@@ -136,7 +136,7 @@ export function BarChart({ title, data, series, format = 'count', compact = fals
 }
 
 function ringArc(start: number, share: number): string {
- const position = (fraction: number) => { const angle = fraction / 100 * Math.PI * 2 - Math.PI / 2; return [110 + 77 * Math.cos(angle), 110 + 77 * Math.sin(angle)]; };
+ const position = (fraction: number) => { const angle = fraction / 100 * Math.PI * 2 - Math.PI / 2; return [Number((110 + 77 * Math.cos(angle)).toFixed(3)), Number((110 + 77 * Math.sin(angle)).toFixed(3))]; };
  const [x1, y1] = position(start);
  if (share >= 100) {
   const [xm, ym] = position(start + 50);

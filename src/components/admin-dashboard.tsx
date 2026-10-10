@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Bell, Box, CalendarDays, ChartNoAxesCombined, Check, ChevronRight, CircleHelp, ClipboardCheck, Clock3, FileClock, Flag, LayoutDashboard, LifeBuoy, LockKeyhole, LogOut, MapPin, Menu, MessageSquare, Search, ShieldCheck, ShoppingBag, Store, TriangleAlert, Users, Wallet, X, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Bell, Box, CalendarDays, ChartNoAxesCombined, Check, ChevronRight, CircleHelp, ClipboardCheck, Clock3, FileClock, Flag, LayoutDashboard, LifeBuoy, LockKeyhole, LogOut, MapPin, Menu, MessageSquare, Search, Settings, ShieldCheck, ShoppingBag, Store, TriangleAlert, Users, Wallet, X, type LucideIcon } from 'lucide-react';
 import { useApp } from './provider';
 import { Modal } from './primitives';
 import { Form } from './forms';
@@ -12,6 +12,7 @@ import { buildAdminAnalytics } from '@/lib/admin-analytics';
 import { AdminFilters, useAdminFilters } from './admin-filters';
 import { BarChart, DonutChart, TrendChart } from './admin-charts';
 import { activitySeries, AnalyticsCoverage, campusSeries } from './admin-analytics';
+import { ThemeToggle } from './theme';
 
 const sections = [
   { title: 'OPERATIONS', links: [
@@ -29,12 +30,13 @@ const sections = [
   ] },
   { title: 'ADMIN', links: [
     { label: 'My account', href: '/admin/profile', icon: Users },
+    { label: 'Settings', href: '/admin/settings', icon: Settings },
     { label: 'Support center', href: '/admin/support', icon: CircleHelp },
   ] },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
-  const { data } = useApp();
+  const { data, toast } = useApp();
   const pathname = usePathname(), router = useRouter();
   const [open, setOpen] = useState(false), [campus, setCampus] = useState('all'), [days, setDays] = useState('all');
   const [draft, setDraft] = useState(''), [search, setSearch] = useState('');
@@ -51,13 +53,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         {sections.map(section => <div className="admin-nav-group" key={section.title}><span>{section.title}</span>{section.links.map(({ href, label, icon: Icon }) => <Link key={label} href={href} onClick={() => setOpen(false)} className={`admin-nav-link ${pathname === href ? 'selected' : ''}`}><Icon size={17} />{label}{label === 'Moderation queue' && pending > 0 && <b>{pending}</b>}{label === 'Notifications' && unread > 0 && <b>{unread}</b>}</Link>)}</div>)}
       </nav>
       <div className="admin-sidebar-help"><span className="help-orbit"><ShieldCheck size={27} /></span><strong>A safer campus circle.</strong><p>Review with care. Keep your community connected.</p><Link href="/admin/support" onClick={() => setOpen(false)}>Open support center <ArrowRight size={13} /></Link></div>
-      <button className="admin-signout" onClick={async () => { await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) }); window.location.assign('/login'); }}><LogOut size={15} />Sign out</button>
+      <button className="admin-signout" onClick={async () => { try { const response = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) }); if (!response.ok) throw new Error(); window.location.assign('/login'); } catch { toast('Unable to sign out. Please try again.'); } }}><LogOut size={15} />Sign out</button>
     </aside>
     <div className="admin-workspace"><header className="admin-topbar">
       <button className="admin-menu" aria-label="Open navigation" aria-controls="admin-navigation" aria-expanded={open} onClick={() => setOpen(true)}><Menu size={21} /></button>
       <form className="admin-search" role="search" onSubmit={e => { e.preventDefault(); setSearch(draft); router.push('/admin'); }}><Search size={17} /><input aria-label="Search dashboard records" placeholder="Search listings, verifications, support cases…" value={draft} onChange={e => { setDraft(e.target.value); if (!e.target.value) setSearch(''); }} /><button aria-label="Search dashboard" type="submit">↵</button></form>
       <label className="admin-select"><MapPin size={16} /><select aria-label="Dashboard campus" value={campus} onChange={e => { setCampus(e.target.value); if (!['/admin', '/admin/analytics'].includes(pathname)) router.push('/admin'); }}><option value="all">All campuses</option>{data.colleges.map(c => <option key={c.id} value={c.id}>{c.short_name}</option>)}</select></label>
       <label className="admin-select period-select"><CalendarDays size={16} /><select aria-label="Dashboard period" value={days} onChange={e => { setDays(e.target.value); if (!['/admin', '/admin/analytics'].includes(pathname)) router.push('/admin'); }}><option value="all">All time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select></label>
+      <ThemeToggle />
       <Link className="admin-bell" href="/admin/notifications" aria-label={`Notifications, ${unread} unread`}><Bell size={21} />{unread > 0 && <b>{unread}</b>}</Link>
       <Link href="/admin/profile" className="admin-user"><span className="avatar">{data.user.avatar}</span><span><strong>{data.user.name}</strong><small>Administrator</small></span></Link>
     </header>

@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { ArrowRight, Bell, Clock3, Cpu, GraduationCap, Heart, HeartHandshake, LayoutDashboard, LifeBuoy, LogOut, MapPin, Megaphone, Menu, MessageCircle, Plus, ReceiptText, Search, ShieldCheck, ShoppingBag, Store, Tag, UserRound, X, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Bell, Clock3, Cpu, GraduationCap, Heart, HeartHandshake, LayoutDashboard, LifeBuoy, LogOut, MapPin, Megaphone, Menu, MessageCircle, Plus, ReceiptText, Search, Settings, ShieldCheck, ShoppingBag, Store, Tag, UserRound, X, type LucideIcon } from 'lucide-react';
 import { useApp } from './provider';
+import { ThemeToggle } from './theme';
 
 const OfferSearch = createContext('');
 export const useOfferSearch = () => useContext(OfferSearch);
@@ -28,14 +29,14 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
       { path: 'saved', label: 'Saved items', icon: Heart, badge: data.saved.length }, { path: 'managed-sale', label: 'Managed selling', icon: HeartHandshake },
     ] },
     { title: 'ACCOUNT', links: [
-      { path: 'notifications', label: 'Notifications', icon: Bell, badge: unread }, { path: 'profile', label: 'Profile & verification', icon: UserRound }, { path: 'support', label: 'Help & support', icon: LifeBuoy },
+      { path: 'notifications', label: 'Notifications', icon: Bell, badge: unread }, { path: 'profile', label: 'Profile & verification', icon: UserRound }, { path: 'settings', label: 'Settings', icon: Settings }, { path: 'support', label: 'Help & support', icon: LifeBuoy },
     ] },
   ] : [
     { title: 'CAMPUS BUSINESS', links: [
       { path: 'deals', label: 'My campus deals', icon: Tag }, { path: 'profile', label: 'Business profile', icon: Store },
     ] },
     { title: 'YOUR WORKSPACE', links: [
-      { path: 'notifications', label: 'Notifications', icon: Bell, badge: unread }, { path: 'support', label: 'Support tickets', icon: LifeBuoy },
+      { path: 'notifications', label: 'Notifications', icon: Bell, badge: unread }, { path: 'settings', label: 'Settings', icon: Settings }, { path: 'support', label: 'Support tickets', icon: LifeBuoy },
     ] },
   ];
   return <OfferSearch.Provider value={offerSearch}><div className={`control-center member-center ${student ? 'student-center' : 'business-center'}`}>
@@ -54,6 +55,7 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
       <button className="admin-menu" ref={menuButton} aria-label="Open navigation" aria-controls="member-navigation" aria-expanded={menu} onClick={() => setMenu(true)}><Menu size={21} /></button>
       <form className="admin-search" role="search" onSubmit={e => { e.preventDefault(); if (student) router.push('/student/marketplace?q=' + encodeURIComponent(draft)); else { setOfferSearch(draft.trim()); router.push('/business'); } }}><Search size={17} /><input aria-label={student ? 'Search your campus' : 'Search your offers'} placeholder={student ? 'Search books, rentals, hardware, services…' : 'Search your campus offers…'} value={draft} onChange={e => { setDraft(e.target.value); if (!e.target.value) setOfferSearch(''); }} /><button type="submit" aria-label={student ? 'Search marketplace' : 'Search offers'}>↵</button></form>
       <Link className="member-campus" href={`${base}/profile`}><MapPin size={16} /><span>{campus?.short_name ?? 'Verify campus'}</span></Link>
+      <ThemeToggle />
       {student && <Link className="admin-bell member-message-link" href="/student/messages" aria-label="Messages"><MessageCircle size={20} /></Link>}
       <Link className="admin-bell" href={`${base}/notifications`} aria-label={`Notifications, ${unread} unread`}><Bell size={20} />{unread > 0 && <b>{unread}</b>}</Link>
       <Link className="admin-user" href={`${base}/profile`} aria-label="Your profile"><span className="avatar">{data.user.avatar}</span><span><strong>{data.user.name}</strong><small>{data.user.verified ? student ? 'Verified student' : 'Verified business' : 'Verification pending'}</small></span></Link>
