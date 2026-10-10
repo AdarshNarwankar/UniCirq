@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import './admin.css';
+import './admin-analytics.css';
 import './member.css';
 import './exchange.css';
 import './auth.css';
