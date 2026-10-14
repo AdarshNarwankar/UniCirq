@@ -58,7 +58,7 @@ export function inspectCoreAuthEnvironment(env: Environment, options: Inspection
     DATABASE_URL: postgresUrlIssue,
     BETTER_AUTH_SECRET: value => value.length >= 32 && value.trim() === value ? undefined : 'Use a cryptographically random secret of at least 32 characters, without surrounding whitespace.',
   });
-  for (const name of ['DATABASE_URL', 'MIGRATION_DATABASE_URL', 'BETTER_AUTH_SECRET', 'RESEND_API_KEY', 'GOOGLE_CLIENT_SECRET']) {
+  for (const name of ['DATABASE_URL', 'MIGRATION_DATABASE_URL', 'BETTER_AUTH_SECRET', 'RESEND_API_KEY', 'GOOGLE_CLIENT_SECRET', 'GMAIL_APP_PASSWORD']) {
     const publicName = 'NEXT_PUBLIC_' + name;
     if (env[publicName]) checks.push({ name: publicName, status: 'invalid', message: 'Remove this public secret and rotate it if it has been deployed.' });
   }
@@ -67,6 +67,22 @@ export function inspectCoreAuthEnvironment(env: Environment, options: Inspection
   return result(checks);
 }
 export function inspectEmailEnvironment(env: Environment, options: InspectionOptions = {}) {
+  if (env.EMAIL_PROVIDER && !['resend', 'gmail'].includes(env.EMAIL_PROVIDER)) {
+    return { ok: false, checks: [{ name: 'EMAIL_PROVIDER', status: 'invalid' as const, message: 'Use resend or gmail as the email provider.' }] };
+  }
+  if (env.EMAIL_PROVIDER === 'gmail') {
+    return result(inspect(env, {
+      GMAIL_USER: value => validEmail(value) && /^[^@]+@gmail\.com$/i.test(value)
+        ? undefined : 'Use the Gmail address that created the App Password.',
+      GMAIL_APP_PASSWORD: value => /^[a-zA-Z]{16}$/.test(value.replace(/ /g, ''))
+        ? undefined : 'Use the 16-letter Google App Password, not the Google account password.',
+      EMAIL_FROM: value => {
+        const address = senderAddress(value);
+        if (!address || address.toLowerCase() !== env.GMAIL_USER?.toLowerCase())
+          return 'Use a sender address matching GMAIL_USER.';
+      },
+    }));
+  }
   return result(inspect(env, {
     RESEND_API_KEY: value => /^re_[A-Za-z0-9_-]+$/.test(value) ? undefined : 'Use a valid Resend API key.',
     EMAIL_FROM: value => {
@@ -89,7 +105,7 @@ export function authCapabilitiesFor(env: Environment, options: InspectionOptions
 export function inspectRuntimeEnvironment(env: Environment, options: InspectionOptions = {}) {
   const core = inspectCoreAuthEnvironment(env, options);
   const google = inspectGoogleEnvironment(env);
-  const includeEmail = !google.ok || Boolean(env.RESEND_API_KEY || env.EMAIL_FROM);
+  const includeEmail = !google.ok || Boolean(env.EMAIL_PROVIDER || env.RESEND_API_KEY || env.EMAIL_FROM || env.GMAIL_USER || env.GMAIL_APP_PASSWORD);
   const checks = [...core.checks, ...(includeEmail ? inspectEmailEnvironment(env, options).checks : [])];
   if (env.GOOGLE_CLIENT_ID || env.GOOGLE_CLIENT_SECRET) checks.push(...google.checks);
   return result(checks);

@@ -10,7 +10,8 @@ if (arguments_.some(argument => !['--production', '--json'].includes(argument)))
   const demo = process.env.UNICIRQ_DEMO_MODE === 'true';
   const warnings = demo ? ['UNICIRQ_DEMO_MODE is enabled. Set it to false before testing database-backed sign-in. Hosted demo access is always disabled.'] : [];
   if (!methods.google) warnings.push('Google sign-in is unavailable until both Google Web OAuth credentials and core database/auth settings are valid.');
-  if (!methods.email) warnings.push('Email/password, email-code sign-in and recovery are unavailable until the database and verified email sender are configured.');
+  if (!methods.email) warnings.push('Email/password, email-code sign-in and recovery are unavailable until the database and selected email sender are configured.');
+  if (process.env.EMAIL_PROVIDER === 'gmail') warnings.push('Gmail SMTP is selected for temporary testing. Gmail sending limits and account protections apply; use a dedicated transactional sender for public launch.');
   const ready = report.ok && !demo && (methods.email || methods.google);
   if (arguments_.includes('--json')) console.log(JSON.stringify({ ready, methods, checks: report.checks, warnings }, null, 2));
   else {

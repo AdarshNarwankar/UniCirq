@@ -1,6 +1,6 @@
 # Login, signup and university onboarding
 
-UniCirq uses Better Auth with a Prisma PostgreSQL adapter and a restricted connection shared with its existing marketplace repository. No hosted database, email sender or Google account has been connected yet. This milestone supplies working boilerplate and offline integration tests.
+UniCirq uses Better Auth with a Prisma PostgreSQL adapter and a restricted connection shared with its existing marketplace repository. The production database is Neon PostgreSQL in Singapore. Google and email providers are enabled independently when their private configuration is complete.
 
 ## User flows
 
@@ -24,10 +24,12 @@ All secrets stay in the ignored `.env.local` and server environment. Start with 
 - `MIGRATION_DATABASE_URL`: separate direct operator connection, local only.
 - `APP_URL`: exact site origin, including the correct scheme, host and port.
 - `BETTER_AUTH_SECRET`: random secret of at least 32 characters.
-- `RESEND_API_KEY` and `EMAIL_FROM`: verified sender for signup verification, password/code login and recovery.
+- `EMAIL_PROVIDER`: `resend` (default) or `gmail` for temporary SMTP testing.
+- `RESEND_API_KEY` and `EMAIL_FROM`: a verified Resend sender for signup verification, password/code login and recovery.
+- `GMAIL_USER`, `GMAIL_APP_PASSWORD` and matching `EMAIL_FROM`: Gmail SMTP testing credentials when `EMAIL_PROVIDER=gmail`.
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: matching Google OAuth Web application credentials.
 
-Google can operate without an email sender. Email/password, email-code signin and recovery require the email provider. Each method remains disabled until its own configuration and the core database/auth configuration are valid. Set `UNICIRQ_DEMO_MODE=false` before testing live methods; local demo mode never mixes real authentication with fictional identities.
+Google can operate without an email sender. Email/password, email-code signin and recovery require the selected email provider. Each method remains disabled until its own configuration and the core database/auth configuration are valid. An invalid selected email provider never falls back to another sender. Set `UNICIRQ_DEMO_MODE=false` before testing live methods; local demo mode never mixes real authentication with fictional identities.
 
 Prisma ORM already queries authentication records through PostgreSQL TCP. For Prisma Postgres hosting, use its pooled/direct TCP connection strings rather than a `prisma+postgres:` Accelerate URL. Direct and pooled URLs alone do not separate privileges: confirm the host supports UniCirq's required operator role creation and restricted runtime login. See [production setup](PRODUCTION-SETUP.md).
 
@@ -47,6 +49,16 @@ https://YOUR_DEPLOYED_DOMAIN/api/auth/callback/google
 ```
 
 If the local app uses `localhost`, register that exact hostname instead. Do not mix `localhost` and `127.0.0.1`. Testing-mode consent screens may need explicit test users. Use a stable preview origin for OAuth. [Google web-server OAuth guide](https://developers.google.com/identity/protocols/oauth2/web-server), [Better Auth Google setup](https://better-auth.com/docs/authentication/google).
+
+For the current production deployment, use JavaScript origin `https://unicirq.vercel.app` and redirect URI `https://unicirq.vercel.app/api/auth/callback/google`. Select **Web application** and keep basic sign-in scopes (`openid`, email, profile). Student Google sign-in does not require Gmail access. Save the client ID/secret in the private environment, then configure the same values in Vercel Production and redeploy.
+
+### Temporary Gmail SMTP setup
+
+Use a dedicated Gmail testing account. Enable 2-Step Verification yourself, then create an App Password named **UniCirq email**. App Password availability depends on the Google account's security and organization policies. Save the 16-letter App Password as `GMAIL_APP_PASSWORD`; never enter the Google account password. Spaces in Google's displayed App Password are accepted.
+
+Set `EMAIL_PROVIDER=gmail`, `GMAIL_USER` to that exact `@gmail.com` address and `EMAIL_FROM` to `UniCirq <THE_SAME_GMAIL_ADDRESS>`. The server uses only `smtp.gmail.com:465` with verified TLS, bounded timeouts and no file/URL attachment access. SMTP acceptance is checked for the intended recipient, but inbox arrival must still be confirmed. No credentials, recipient addresses, OTPs or provider responses are logged.
+
+Run `npm run email:check -- --to YOUR_OWN_EMAIL_ADDRESS` only after explicitly authorizing that recipient. Then test real signup verification and recovery. Gmail sending limits and account protections apply; use a verified transactional sender for public launch. Switching back to Resend requires `EMAIL_PROVIDER=resend`, a verified domain and its private sending key. [Google App Password instructions](https://support.google.com/accounts/answer/185833), [Nodemailer SMTP settings](https://nodemailer.com/smtp), [Gmail sending limits](https://support.google.com/mail/answer/22839).
 
 ## Apply and check
 

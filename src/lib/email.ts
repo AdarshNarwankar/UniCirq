@@ -1,12 +1,69 @@
 import { randomUUID } from 'node:crypto';
+import nodemailer from 'nodemailer';
 import { senderAddress, validEmail } from './environment';
 export type OtpPurpose = 'sign-in' | 'email-verification' | 'forget-password';
-type EmailConfiguration = { apiKey: string; from: string; fetcher?: typeof fetch; timeoutMs?: number };
+type GmailSmtpOptions = {
+  host: 'smtp.gmail.com'; port: 465; secure: true;
+  auth: { user: string; pass: string };
+  tls: { rejectUnauthorized: true; servername: 'smtp.gmail.com' };
+  connectionTimeout: number; greetingTimeout: number; socketTimeout: number; dnsTimeout: number;
+  disableFileAccess: true; disableUrlAccess: true; logger: false; debug: false;
+};
+type GmailMessage = {
+  from: { name: string; address: string }; to: { address: string }[];
+  envelope: { from: string; to: string[] }; subject: string; text: string; html: string;
+};
+type GmailTransport = {
+  sendMail(message: GmailMessage): Promise<{ accepted?: unknown[]; rejected?: unknown[] }>;
+  close(): void;
+};
+export type EmailConfiguration =
+  | { transport?: 'resend'; apiKey: string; from: string; fetcher?: typeof fetch; timeoutMs?: number }
+  | { transport: 'gmail'; user: string; appPassword: string; from: string; timeoutMs?: number;
+      smtpFactory?: (options: GmailSmtpOptions) => GmailTransport };
 type Message = { email: string; subject: string; text: string; html: string };
 export class EmailDeliveryError extends Error {
   constructor() { super('Email delivery is temporarily unavailable. Please try again.'); this.name = 'EmailDeliveryError'; }
 }
-async function send(message: Message, { apiKey, from, fetcher = fetch, timeoutMs = 10000 }: EmailConfiguration) {
+async function sendGmail(message: Message, configuration: Extract<EmailConfiguration, { transport: 'gmail' }>) {
+  const { user, from, smtpFactory = options => nodemailer.createTransport(options) } = configuration;
+  const password = configuration.appPassword.replace(/ /g, '');
+  const address = senderAddress(from);
+  // Send one explicit mailbox, never a header string that can expand into more recipients.
+  if (!validEmail(user) || !user.toLowerCase().endsWith('@gmail.com') || !/^[a-z]{16}$/i.test(password) ||
+      !address || address.toLowerCase() !== user.toLowerCase() ||
+      !validEmail(message.email) || /[,;:\u0000-\u001f\u007f"\\()]/.test(message.email) ||
+      /[\r\n\u0000]/.test(message.subject)) throw new EmailDeliveryError();
+  const requestedTimeout = configuration.timeoutMs ?? 10000;
+  if (!Number.isFinite(requestedTimeout) || requestedTimeout <= 0) throw new EmailDeliveryError();
+  const timeout = Math.min(10000, Math.ceil(requestedTimeout));
+  let transport: GmailTransport | undefined;
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  try {
+    transport = smtpFactory({
+      host: 'smtp.gmail.com', port: 465, secure: true,
+      auth: { user, pass: password }, tls: { rejectUnauthorized: true, servername: 'smtp.gmail.com' },
+      connectionTimeout: timeout, greetingTimeout: timeout, socketTimeout: timeout, dnsTimeout: timeout,
+      disableFileAccess: true, disableUrlAccess: true, logger: false, debug: false,
+    });
+    const expired = new Promise<never>((_, reject) => { deadline = setTimeout(() => reject(new EmailDeliveryError()), timeout); });
+    const info = await Promise.race([transport.sendMail({
+      from: { name: 'UniCirq', address: user }, to: [{ address: message.email }],
+      envelope: { from: user, to: [message.email] }, subject: message.subject, text: message.text, html: message.html,
+    }), expired]);
+    if (!Array.isArray(info?.accepted) || info.accepted.length !== 1 ||
+        typeof info.accepted[0] !== 'string' || info.accepted[0].toLowerCase() !== message.email.toLowerCase() ||
+        !Array.isArray(info.rejected) || info.rejected.length !== 0) throw new EmailDeliveryError();
+    // SMTP acceptance is not proof of inbox delivery. Never log addresses or SMTP responses.
+  } catch { throw new EmailDeliveryError(); }
+  finally {
+    if (deadline !== undefined) clearTimeout(deadline);
+    try { transport?.close(); } catch { /* Cleanup must not expose provider details or replace the send result. */ }
+  }
+}
+async function send(message: Message, configuration: EmailConfiguration) {
+  if (configuration.transport === 'gmail') return sendGmail(message, configuration);
+  const { apiKey, from, fetcher = fetch, timeoutMs = 10000 } = configuration;
   if (!/^re_[A-Za-z0-9_-]+$/.test(apiKey) || !senderAddress(from) || !validEmail(message.email)) throw new EmailDeliveryError();
   try {
     const response = await fetcher('https://api.resend.com/emails', {

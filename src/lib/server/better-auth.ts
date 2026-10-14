@@ -1,7 +1,7 @@
 import 'server-only';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { defineAuth } from '../auth-definition';
-import { sendSignInCode } from '../email';
+import { sendSignInCode, type EmailConfiguration } from '../email';
 import { authPrisma } from './prisma';
 import { appOrigin, authenticationCapabilities } from './config';
 
@@ -20,10 +20,16 @@ function buildAuth() {
     } : {}),
     async sendCode(email, otp, type) {
       if (!capabilities.email) throw new Error('Email authentication is not configured.');
-      await sendSignInCode({ email, otp, type }, {
+      const configuration: EmailConfiguration = process.env.EMAIL_PROVIDER === 'gmail' ? {
+        transport: 'gmail',
+        user: process.env.GMAIL_USER!,
+        appPassword: process.env.GMAIL_APP_PASSWORD!,
+        from: process.env.EMAIL_FROM!,
+      } : {
         apiKey: process.env.RESEND_API_KEY!,
         from: process.env.EMAIL_FROM!,
-      });
+      };
+      await sendSignInCode({ email, otp, type }, configuration);
     },
   });
 }

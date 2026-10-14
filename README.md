@@ -63,14 +63,19 @@ All variables below are server-only:
 | `APP_URL` | Exact site origin, e.g. `https://your-project.vercel.app` |
 | `DATABASE_URL` | Restricted runtime PostgreSQL connection; remote `sslmode=verify-full` |
 | `BETTER_AUTH_SECRET` | Cryptographically random secret, at least 32 characters |
+| `EMAIL_PROVIDER` | `resend` (default), or `gmail` for temporary SMTP testing |
 | `RESEND_API_KEY` | Resend key for your verified sending domain |
-| `EMAIL_FROM` | Verified sender, e.g. `UniCirq <hello@your-domain.example>` |
+| `EMAIL_FROM` | Verified Resend sender, or the exact Gmail address in `GMAIL_USER` |
+| `GMAIL_USER` | Dedicated `@gmail.com` sender when `EMAIL_PROVIDER=gmail` |
+| `GMAIL_APP_PASSWORD` | Google App Password for temporary Gmail delivery; never the account password |
 | `GOOGLE_CLIENT_ID` | Google OAuth Web application client ID |
 | `GOOGLE_CLIENT_SECRET` | Matching private Google OAuth client secret |
 
 Never prefix secrets with `NEXT_PUBLIC_`, commit them, or log them. `.env.local` is ignored. Local database mode uses `APP_URL=http://127.0.0.1:3000`. Restart after changing environment variables.
 
 Email OTP verifies email access only; campus membership requires separate admin review. Codes expire after five minutes, are stored hashed and have limited attempts. Sessions and OTP rate limits persist in PostgreSQL.
+
+Gmail SMTP testing requires 2-Step Verification and an App Password. It uses verified TLS to `smtp.gmail.com:465`, restricts the sender to the configured Gmail account and preserves the existing signup/code/recovery flows. Gmail limits and account protections apply; switch to a verified transactional sending domain before public launch. See [authentication setup](docs/AUTHENTICATION.md).
 
 To bootstrap the first Admin, sign in with the intended operator email, then use the trusted owner connection:
 

@@ -56,7 +56,9 @@ Add the real pilot college through the operator connection. `database/seed.examp
 
 ## 4. Configure email
 
-Verify a domain in Resend and use a sending key scoped to that domain. Set `EMAIL_FROM` to an address on it. Email OTP verifies access to the email address; campus membership still needs admin approval. The development `resend.dev` sender is rejected in hosted configuration.
+For public launch, set `EMAIL_PROVIDER=resend`, verify a domain in Resend and use a sending key scoped to that domain. Set `EMAIL_FROM` to an address on it. Email OTP verifies access to the email address; campus membership still needs admin approval. The development `resend.dev` sender is rejected in hosted configuration.
+
+For temporary testing without an owned domain, set `EMAIL_PROVIDER=gmail`, `GMAIL_USER` to a dedicated Gmail address, `GMAIL_APP_PASSWORD` to its Google App Password and `EMAIL_FROM` to the same address. Enable 2-Step Verification and create the App Password yourself; never use the Google account password. Only fixed-host implicit TLS to `smtp.gmail.com:465` is used. Store the App Password as a Vercel Production Secret and redeploy after configuration. Gmail sending limits and account protections still apply. See [Gmail setup](AUTHENTICATION.md#temporary-gmail-smtp-setup).
 
 [Resend domain setup](https://resend.com/docs/dashboard/domains/introduction) and [sending API](https://resend.com/docs/api-reference/emails/send-email) describe provider requirements.
 
