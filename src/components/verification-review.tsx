@@ -70,7 +70,7 @@ function ReviewContent({ id, onDone }: { id: string; onDone?: () => void }) {
       <div><dt>Application campus</dt><dd>{campus?.name ?? 'Campus unavailable'}{campus?.city && <small>{campus.city}</small>}</dd></div>
       <div><dt>Selected university</dt><dd>{selectedCampus?.name ?? (applicant?.college_id ? 'Campus unavailable' : 'Not selected')}</dd></div>
       <div><dt>Current account</dt><dd>{applicant ? `${applicant.role === 'admin' ? 'Administrator' : applicant.role === 'business' ? 'Business' : 'Student'} · ${applicant.suspended ? 'Suspended' : 'Active'}` : 'Unavailable'}</dd></div>
-      <div><dt>Campus eligibility</dt><dd>{applicant ? applicant.verified ? 'Campus verified' : 'Verification required' : 'Unavailable'}</dd></div>
+      <div><dt>Eligibility status</dt><dd>{applicant ? applicant.role === 'admin' ? 'Administrator access' : applicant.verified ? applicant.role === 'business' ? 'Business approved' : 'Campus verified' : 'Verification required' : 'Unavailable'}</dd></div>
       {applicant?.course && <div><dt>Course</dt><dd>{applicant.course}</dd></div>}
       {applicant?.year && <div><dt>Year</dt><dd>{applicant.year}</dd></div>}
       <div><dt>Submitted</dt><dd><time dateTime={application.created_at}>{dateLabel(application.created_at)}</time></dd></div>
