@@ -72,7 +72,7 @@ npm run build
 
 `setup:check` checks private configuration formats and whether demo mode remains enabled. It prints variable names and fixed explanations, never their values. It cannot verify a key, password or sending domain remotely.
 
-`db:check` connects with the actual runtime login, checks verified TLS, catalog metadata, reachable roles, table/column grants, RLS and protected function ownership/access. It checks migration checksums through the separate operator connection. All audits are read-only and roll back; no personal table rows are queried. The command fails when any check fails. Without `--require-migrations`, omitted operator credentials are explicitly reported as **NOT CHECKED**.
+`db:check` connects with the actual runtime login and checks the connected client's TLS socket for encryption and certificate authorization to the database endpoint or its proxy. Remote URLs must still use `sslmode=verify-full`; a proxy's separate PostgreSQL connection does not determine the client connection's TLS result. The audit also checks catalog metadata, reachable roles, table/column grants, RLS and protected function ownership/access. It checks migration checksums through the separate operator connection. All audits are read-only and roll back; no personal table rows are queried. The command fails when any check fails. Without `--require-migrations`, omitted operator credentials are explicitly reported as **NOT CHECKED**.
 
 If you choose to send a real test email, run this with your own recipient address:
 
@@ -96,6 +96,8 @@ WHERE id=(SELECT id FROM "user"
 Verify exactly one expected account changed. The app does not expose self-promotion.
 
 ## 6. Configure Vercel when deployment is requested
+
+The deployment uses Singapore for PostgreSQL (Neon region `aws-ap-southeast-1`) and Vercel Functions (`sin1`, configured in `vercel.json`) to keep server work close to the database and users in India. Region changes require a new deployment. This setting does not establish database connectivity; complete the database audit before live use. Keep the Neon integration's owner connection out of project runtime variables and configure only the separately restricted login. See [Vercel regions](https://vercel.com/docs/regions) and [function region configuration](https://vercel.com/docs/functions/configuring-functions/region).
 
 Set only runtime credentials and the deployed HTTPS `APP_URL` in the appropriate Vercel environment. Use a separate database and sender for previews. Run `setup:check -- --production` locally with the deployed origin to validate its format; run the read-only database audit separately. Apply migrations through the trusted operator process, never during a build.
 

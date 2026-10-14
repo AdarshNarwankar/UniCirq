@@ -9,6 +9,8 @@ node_modules/
 src/generated/
 work
 *.tsbuildinfo
+.agents
+skills-lock.json
 
 # Source blueprints are not application assets.
 *.pdf

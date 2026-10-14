@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
+import { TLSSocket } from 'node:tls';
 import pg from 'pg';
 import { auditMigrationLedger, auditRuntimeDatabase, inspectDatabaseTransport, type DatabaseReadinessReport, type MigrationChecksum } from '../src/lib/database-readiness';
 
@@ -14,10 +15,10 @@ async function connectAndCheck(connectionString: string, purpose: 'runtime' | 'm
   const client = new pg.Client({ connectionString, connectionTimeoutMillis: 10000, statement_timeout: 10000, application_name: 'unicirq-readiness-check' });
   try {
     await client.connect();
-    // pg_stat_ssl exposes transport state only for this connection; no user data.
-    const transport = await client.query<{ ssl: boolean }>('SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()');
-    const encrypted = transport.rows[0]?.ssl ?? false;
-    const actual = inspectDatabaseTransport(connectionString, encrypted);
+    // Check the client-to-endpoint connection; proxies may terminate TLS before PostgreSQL.
+    const stream = client.connection.stream;
+    const verifiedTls = stream instanceof TLSSocket && stream.encrypted === true && stream.authorized === true;
+    const actual = inspectDatabaseTransport(connectionString, verifiedTls);
     show({ ok: actual.ok, checks: [actual] });
     if (!actual.ok) return;
     show(purpose === 'runtime' ? await auditRuntimeDatabase(client) : await auditMigrationLedger(client, expected));

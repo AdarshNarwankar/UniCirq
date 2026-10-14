@@ -7,3 +7,7 @@ work/
 next-env.d.ts
 src/generated/prisma/
 .vercel/
+
+# Local provider guidance installed by the Vercel Marketplace CLI.
+.agents/skills/
+skills-lock.json
