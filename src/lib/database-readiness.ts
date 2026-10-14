@@ -88,7 +88,10 @@ export async function auditRuntimeDatabase(db: DatabaseQueryable): Promise<Datab
     const command = functions.find(row => row.name === 'unicirq_command(jsonb)');
     const safeSearchPath = Array.isArray(command?.settings) && command.settings.some(value => String(value).replace(/\s/g, '') === 'search_path=public,pg_temp');
     const ownedFunctions = names(functions.filter(row => row.owned));
-    checks.push(check('protected-function-grants', unavailable.length === 0 && ownedFunctions.length === 0 && Boolean(command?.definer && safeSearchPath), 'Application policy helpers and the protected command function require their restricted execute grants and separate ownership.', [...new Set([...unavailable, ...ownedFunctions])]));
+    const legacyCommands = (await db.query(`SELECT p.proname || '(jsonb)' AS name FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND p.proname='app_command_before_verification_reviews' AND EXISTS(SELECT FROM pg_roles r
+        WHERE (r.rolname=session_user OR r.rolname='unicirq_app' OR pg_has_role(session_user,r.oid,'MEMBER')) AND has_function_privilege(r.oid,p.oid,'EXECUTE'))`)).rows;
+    checks.push(check('protected-function-grants', unavailable.length === 0 && ownedFunctions.length === 0 && legacyCommands.length === 0 && Boolean(command?.definer && safeSearchPath), 'Application policy helpers and the protected command function require restricted grants and separate ownership; superseded commands must stay owner-only.', [...new Set([...unavailable, ...ownedFunctions, ...names(legacyCommands)])]));
 
     await db.query('SET LOCAL ROLE unicirq_app');
     const appRole = (await db.query(`SELECT current_user='unicirq_app' AS assumed,

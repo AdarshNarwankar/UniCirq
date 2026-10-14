@@ -15,7 +15,8 @@ export interface OrderEvent { id:string; order_id:string; actor_id:string; statu
 export interface SavedItem { user_id:string; listing_id:string }
 export interface Ticket { id:string; owner_id:string; college_id:string|null; order_id:string|null; listing_id:string|null; subject:string; body:string; type:'support'|'dispute'|'report'|'managed_sale'; status:'open'|'resolved'; resolution:string; created_at:string }
 export interface Notification { id:string; user_id:string; title:string; body:string; href:string; read:boolean; created_at:string }
-export interface Verification { id:string; user_id:string; college_id:string; kind:'campus'|'business'; detail:string; status:'pending'|'approved'|'rejected'; reason:string; created_at:string }
+export type ReviewMethod = 'campus_email'|'campus_office'|'in_person'|'public_business';
+export interface Verification { id:string; user_id:string; college_id:string; kind:'campus'|'business'; detail:string; status:'pending'|'approved'|'rejected'; reason:string; created_at:string; reviewed_at?:string|null; reviewed_by?:string|null; review_method?:ReviewMethod|null }
 export interface Business { id:string; owner_id:string; college_id:string; name:string; category:string; description:string; location:string; verified:boolean }
 export interface Deal { id:string; business_id:string; owner_id:string; college_id:string; title:string; description:string; code:string; expires_on:string; status:'pending'|'active'|'removed'; created_at:string }
 export interface Audit { id:string; actor_id:string; action:string; target_id:string; reason:string; created_at:string }
@@ -43,7 +44,7 @@ export const commandSchema = z.discriminatedUnion('type',[
  z.object({type:z.literal('request_verification'),college_id:id,kind:z.enum(['campus','business']),detail}),
  z.object({type:z.literal('read_notifications')}),
  z.object({type:z.literal('create_deal'),title:short,description:detail,code:z.string().trim().min(2).max(24).regex(/^[A-Za-z0-9-]+$/),expires_on:date}),
- z.object({type:z.literal('moderate'),entity:z.enum(['listing','deal','verification','ticket']),target_id:id,decision:z.enum(['approve','remove','reject','resolve']),reason:z.string().trim().min(5).max(500)})
+ z.object({type:z.literal('moderate'),entity:z.enum(['listing','deal','verification','ticket']),target_id:id,decision:z.enum(['approve','remove','reject','resolve']),reason:z.string().trim().min(5).max(500),review_method:z.enum(['campus_email','campus_office','in_person','public_business']).optional(),evidence_checked:z.boolean().optional()})
 ]);
 export type Command = z.infer<typeof commandSchema>;
 export const moneyLabel = (paise:number) => new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',minimumFractionDigits:0,maximumFractionDigits:2}).format(paise/100);
