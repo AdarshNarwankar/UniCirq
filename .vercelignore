@@ -1,0 +1,14 @@
+# Private configuration stays on the operator's machine.
+.env*
+.vercel/
+.git/
+
+# Regenerated during install/build, or used only for local verification.
+node_modules/
+.next/
+src/generated/
+work
+*.tsbuildinfo
+
+# Source blueprints are not application assets.
+*.pdf
