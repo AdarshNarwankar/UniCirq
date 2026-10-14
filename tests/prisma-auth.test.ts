@@ -87,6 +87,30 @@ before(async () => {
 });
 after(async () => { await prisma.$disconnect(); await db.close(); });
 
+test('fresh login rejects foreign, missing and null origins before creating authentication state', async () => {
+  const before = await prisma.verification.count();
+  const sent = collectedCodes.size;
+  for (const originHeader of ['https://attacker.example', 'null', undefined]) {
+    for (const path of ['/sign-in/social', '/email-otp/send-verification-otp', '/sign-up/email']) {
+      const response = await auth.handler(new Request(origin + '/api/auth' + path, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.70',
+          ...(originHeader === undefined ? {} : { origin: originHeader }),
+        },
+        body: JSON.stringify(path === '/sign-in/social'
+          ? { provider: 'google', callbackURL: '/auth/complete', disableRedirect: true }
+          : { email: 'blocked-origin@example.test', name: 'Blocked origin', password: 'Test-password-123', type: 'sign-in' }),
+      }));
+      assert.equal(response.status, 403, path + ' ' + originHeader);
+      assert.equal((await response.json()).code, 'INVALID_ORIGIN');
+    }
+  }
+  assert.equal(await prisma.verification.count(), before);
+  assert.equal(collectedCodes.size, sent);
+  assert.equal(await prisma.user.count({ where: { email: 'blocked-origin@example.test' } }), 0);
+});
+
 test('account security actions validate password ownership and revoke only owned sessions', async (t) => {
   cookie = ''; requestIp = '127.0.0.31';
   const email = 'settings-owner@example.test', password = 'Settings-password-123';

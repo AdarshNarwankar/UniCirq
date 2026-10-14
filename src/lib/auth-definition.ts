@@ -24,6 +24,10 @@ export function defineAuth({
 
     hooks: {
       before: createAuthMiddleware(async ctx => {
+        // Require our own origin even for a fresh login without a session cookie.
+        if (ctx.request?.method === 'POST' && ctx.request.headers.get('origin') !== origin) {
+          throw new APIError('FORBIDDEN', { code: 'INVALID_ORIGIN', message: 'Request origin is not allowed.' });
+        }
         if (ctx.path !== '/email-otp/verify-email') return;
         const email = typeof ctx.body?.email === 'string' ? ctx.body.email.toLowerCase() : '';
         const identity = await ctx.context.internalAdapter.findUserByEmail(email);
