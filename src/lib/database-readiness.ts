@@ -9,9 +9,9 @@ export interface DatabaseReadinessReport { ok: boolean; checks: ReadinessCheck[]
 export interface MigrationChecksum { name: string; checksum: string }
 
 export const authTables = ['user', 'session', 'account', 'verification', 'rateLimit'] as const;
-export const applicationTables = ['colleges', 'profiles', 'listings', 'student_requests', 'conversations', 'messages', 'orders', 'order_events', 'saved_items', 'support_tickets', 'notifications', 'verification_requests', 'business_profiles', 'deals', 'audit_logs', 'action_limits'] as const;
+export const applicationTables = ['colleges', 'profiles', 'listings', 'listing_photos', 'student_requests', 'conversations', 'messages', 'orders', 'order_events', 'saved_items', 'support_tickets', 'notifications', 'verification_requests', 'business_profiles', 'deals', 'audit_logs', 'action_limits'] as const;
 const readableApplicationTables = applicationTables.filter(name => name !== 'action_limits');
-const accessFunctions = ['app_user_id()', 'app_is_admin()', 'app_campus()', 'app_active()', 'app_participant(uuid)', 'app_order_listing(uuid)', 'app_conversation_listing(uuid)', 'unicirq_command(jsonb)', 'app_choose_university(jsonb)'];
+const accessFunctions = ['app_user_id()', 'app_is_admin()', 'app_campus()', 'app_active()', 'app_participant(uuid)', 'app_order_listing(uuid)', 'app_conversation_listing(uuid)', 'unicirq_command(jsonb)', 'app_choose_university(jsonb)', 'app_create_listing_with_photo(jsonb,bytea)'];
 const forbiddenRoles = ['pg_read_all_data', 'pg_write_all_data', 'pg_read_server_files', 'pg_write_server_files', 'pg_execute_server_program'];
 
 function finish(checks: ReadinessCheck[]): DatabaseReadinessReport { return { ok: checks.every(check => check.ok), checks }; }
@@ -82,16 +82,18 @@ export async function auditRuntimeDatabase(db: DatabaseQueryable): Promise<Datab
     const functions = (await db.query(`SELECT expected.name,p.oid IS NOT NULL AS present,
       CASE WHEN p.oid IS NULL THEN false ELSE has_function_privilege('unicirq_app',p.oid,'EXECUTE') END AS executable,
       p.prosecdef AS definer,p.proconfig AS settings,
+      EXISTS(SELECT FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) privilege WHERE privilege.grantee=0 AND privilege.privilege_type='EXECUTE') AS public_execute,
       EXISTS(SELECT FROM pg_roles r WHERE (r.rolname=session_user OR pg_has_role(session_user,r.oid,'MEMBER')) AND r.oid=p.proowner) AS owned
       FROM unnest($1::text[]) AS expected(name) LEFT JOIN pg_proc p ON p.oid=to_regprocedure('public.'||expected.name)`, [accessFunctions])).rows;
     const unavailable = names(functions.filter(row => !row.present || !row.executable));
-    const command = functions.find(row => row.name === 'unicirq_command(jsonb)');
-    const safeSearchPath = Array.isArray(command?.settings) && command.settings.some(value => String(value).replace(/\s/g, '') === 'search_path=public,pg_temp');
+    const unsafeCommands = names(functions.filter(row => ['unicirq_command(jsonb)', 'app_create_listing_with_photo(jsonb,bytea)'].includes(String(row.name)) &&
+      (!row.definer || !Array.isArray(row.settings) || !row.settings.some(value => String(value).replace(/\s/g, '') === 'search_path=public,pg_temp'))));
+    const publicFunctions = names(functions.filter(row => row.public_execute));
     const ownedFunctions = names(functions.filter(row => row.owned));
     const legacyCommands = (await db.query(`SELECT p.proname || '(jsonb)' AS name FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
       WHERE n.nspname='public' AND p.proname='app_command_before_verification_reviews' AND EXISTS(SELECT FROM pg_roles r
         WHERE (r.rolname=session_user OR r.rolname='unicirq_app' OR pg_has_role(session_user,r.oid,'MEMBER')) AND has_function_privilege(r.oid,p.oid,'EXECUTE'))`)).rows;
-    checks.push(check('protected-function-grants', unavailable.length === 0 && ownedFunctions.length === 0 && legacyCommands.length === 0 && Boolean(command?.definer && safeSearchPath), 'Application policy helpers and the protected command function require restricted grants and separate ownership; superseded commands must stay owner-only.', [...new Set([...unavailable, ...ownedFunctions, ...names(legacyCommands)])]));
+    checks.push(check('protected-function-grants', unavailable.length === 0 && ownedFunctions.length === 0 && legacyCommands.length === 0 && unsafeCommands.length === 0 && publicFunctions.length === 0, 'Application policy helpers and the protected command function require restricted grants and separate ownership; superseded commands must stay owner-only.', [...new Set([...unavailable, ...ownedFunctions, ...unsafeCommands, ...publicFunctions, ...names(legacyCommands)])]));
 
     await db.query('SET LOCAL ROLE unicirq_app');
     const appRole = (await db.query(`SELECT current_user='unicirq_app' AS assumed,

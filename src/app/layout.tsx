@@ -9,6 +9,7 @@ import './exchange.css';
 import './auth.css';
 import './profile.css';
 import './theme.css';
+import './listing-photo.css';
 import './trust-verification.css';
 import './verification-review.css';
 import './verification-workspace.css';
