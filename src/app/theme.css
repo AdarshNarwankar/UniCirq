@@ -23,4 +23,20 @@ html[data-theme=dark] :is(.exchange-metrics strong,.exchange-record-top h2,.exch
 html[data-theme=dark] :is(.exchange-record-top small,.exchange-record-top>div>span,.exchange-record-meta span,.exchange-record-meta small,.exchange-record-next,.exchange-section-title p,.exchange-next>p,.exchange-timeline span:not(.timeline-dot),.exchange-timeline time,.exchange-agreement dt,.exchange-agreement dd,.exchange-agreement>p,.exchange-payment-note>span,.exchange-confirm>p,.exchange-review>span,.review-amount small,.exchange-owned-listing small,.exchange-chat-context small,.exchange-chat-context div>span,.exchange-confirm .checkbox){color:var(--muted)}
 html[data-theme=dark] :is(.exchange-progress>div>span,.timeline-dot){background:#1c3555;border-color:#314b70;color:#a6c8ff}html[data-theme=dark] .exchange-record-meta{border-color:var(--line)}html[data-theme=dark] .exchange-filter input{color:var(--ink)}html[data-theme=dark] .message.outgoing{background:#2458bc;color:white}html[data-theme=dark] .message.outgoing p{color:white}html[data-theme=dark] .message.outgoing time{color:#d3e2ff}
 html[data-theme=dark] :is(.account-search,.account-university,.account-demo,.rental-dates input){background:var(--surface);border-color:var(--line);color:var(--ink)}html[data-theme=dark] :is(.account-university.selected,.account-verification,.account-campus-icon,.account-empty,.account-alert:not(.error)){background:var(--surface-soft);border-color:var(--line);color:#accbff}html[data-theme=dark] :is(.account-university strong,.account-universities legend,.account-verification strong){color:var(--ink)}html[data-theme=dark] :is(.account-help,.account-other,.account-secure,.account-trust,.account-demo p,.account-university small,.account-verification p){color:var(--muted)}html[data-theme=dark] :is(.account-selected,.account-switch,.account-other a,.account-label-row a){color:var(--blue)}html[data-theme=dark] .account-secure{border-color:var(--line)}
+/* Admin dashboard rows must replace the light gradients, not only their borders. */
+html[data-theme=dark] :is(.listing-review-row,.safety-record){background:var(--surface-soft);border-color:var(--line);color:var(--ink)}
+html[data-theme=dark] .control-center :is(.record-title strong,.safety-record strong){color:var(--ink)}
+html[data-theme=dark] .safety-record small{color:var(--muted)}
+html[data-theme=dark] :is(.safety-record>b,.safety-record>svg,.control-panel header>a){color:var(--blue)}
+html[data-theme=dark] .review-thumb{background:var(--pale);color:#a6c8ff}
+html[data-theme=dark] .panel-footnote{border-color:var(--line)}
+html[data-theme=dark] :is(.safety-record:hover,.admin-mini-button:hover){background:var(--pale);border-color:var(--blue)}
+html[data-theme=dark] .safety-record:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+html[data-theme=dark] :is(.admin-tabs button>span,.admin-tabs span>span,.admin-tabs b){background:var(--line);color:var(--ink)}
+html[data-theme=dark] .admin-tabs .active :is(span,b){background:#ffffff2b;color:#fff}
+html[data-theme=dark] .control-center .admin-tabs>.active{background:#2d6bf0;color:#fff;border-color:#2d6bf0}
+html[data-theme=dark] .admin-quiet>svg{background:var(--pale);color:var(--blue)}
+html[data-theme=dark] .chart-totals>div+div{border-color:var(--line)}
+html[data-theme=dark] .chart-totals strong{color:var(--ink)}
+html[data-theme=dark] .chart-totals small{color:var(--muted)}
 @media(max-width:500px){.theme-picker{gap:9px}.theme-picker>button{padding:10px;gap:6px}.theme-preview{height:62px}.theme-picker small{font-size:9px}.theme-toggle{width:31px;height:31px}.account-main>.theme-toggle{right:18px;top:17px}}
