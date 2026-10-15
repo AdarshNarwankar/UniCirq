@@ -90,8 +90,8 @@ export async function auditRuntimeDatabase(db: DatabaseQueryable): Promise<Datab
       (!row.definer || !Array.isArray(row.settings) || !row.settings.some(value => String(value).replace(/\s/g, '') === 'search_path=public,pg_temp'))));
     const publicFunctions = names(functions.filter(row => row.public_execute));
     const ownedFunctions = names(functions.filter(row => row.owned));
-    const legacyCommands = (await db.query(`SELECT p.proname || '(jsonb)' AS name FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-      WHERE n.nspname='public' AND p.proname='app_command_before_verification_reviews' AND EXISTS(SELECT FROM pg_roles r
+    const legacyCommands = (await db.query(`SELECT p.proname || '(' || oidvectortypes(p.proargtypes) || ')' AS name FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public' AND starts_with(p.proname,'app_command_before_') AND EXISTS(SELECT FROM pg_roles r
         WHERE (r.rolname=session_user OR r.rolname='unicirq_app' OR pg_has_role(session_user,r.oid,'MEMBER')) AND has_function_privilege(r.oid,p.oid,'EXECUTE'))`)).rows;
     checks.push(check('protected-function-grants', unavailable.length === 0 && ownedFunctions.length === 0 && legacyCommands.length === 0 && unsafeCommands.length === 0 && publicFunctions.length === 0, 'Application policy helpers and the protected command function require restricted grants and separate ownership; superseded commands must stay owner-only.', [...new Set([...unavailable, ...ownedFunctions, ...unsafeCommands, ...publicFunctions, ...names(legacyCommands)])]));
 
