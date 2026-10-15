@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Bell, Box, CalendarDays, ChartNoAxesCombined, Check, ChevronRight, CircleHelp, ClipboardCheck, Clock3, FileClock, Flag, LayoutDashboard, LifeBuoy, LockKeyhole, LogOut, MapPin, Menu, MessageSquare, Search, Settings, ShieldCheck, ShoppingBag, Store, TriangleAlert, Users, Wallet, X, type LucideIcon } from 'lucide-react';
 import { useApp } from './provider';
 import { Modal } from './primitives';
 import { VerificationReview } from './verification-review';
 import { moneyLabel } from '@/lib/domain';
-import { adminPaths, adminCaseHref, adminSearchPages, adminRecordPages } from '@/lib/admin-workspaces';
+import { adminPaths, adminCaseHref, adminRecordPages } from '@/lib/admin-workspaces';
 import { moderationAttention } from '@/lib/moderation-workspace';
 import { buildAdminAnalytics } from '@/lib/admin-analytics';
 import { AdminFilters, useAdminFilters } from './admin-filters';
@@ -39,13 +39,12 @@ const sections = [
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const { data, toast } = useApp();
-  const pathname = usePathname(), router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false), [campus, setCampus] = useState('all'), [days, setDays] = useState('all');
-  const [draft, setDraft] = useState(''), [search, setSearch] = useState('');
   useEffect(() => { const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); }; window.addEventListener('keydown', close); return () => window.removeEventListener('keydown', close); }, []);
   const unread = data.notifications.filter(n => !n.read).length;
   const pending = moderationAttention(data).count;
-  return <AdminFilters.Provider value={{ campus, days, search }}><div className="control-center">
+  return <AdminFilters.Provider value={{ campus, days, search: '' }}><div className="control-center">
     <a className="skip-link" href="#main-content">Skip to content</a>
     {open && <button className="admin-scrim" aria-label="Close navigation" onClick={() => setOpen(false)} />}
     <aside id="admin-navigation" className={`admin-sidebar ${open ? 'is-open' : ''}`} aria-label="Admin sidebar">
@@ -59,7 +58,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     </aside>
     <div className="admin-workspace"><header className="admin-topbar">
       <button className="admin-menu" aria-label="Open navigation" aria-controls="admin-navigation" aria-expanded={open} onClick={() => setOpen(true)}><Menu size={21} /></button>
-      <form className="admin-search" role="search" onSubmit={e => { e.preventDefault(); setSearch(draft); if (!adminSearchPages.includes(pathname)) router.push(adminPaths.queue); }}><Search size={17} /><input aria-label="Search dashboard records" placeholder={pathname === adminPaths.help ? 'Search support articles…' : 'Search listings, verifications, support cases…'} value={draft} onChange={e => { setDraft(e.target.value); if (!e.target.value) setSearch(''); }} /><button aria-label="Search dashboard" type="submit">↵</button></form>
       {adminRecordPages.includes(pathname) && <><label className="admin-select"><MapPin size={16} /><select aria-label="Dashboard campus" value={campus} onChange={e => { setCampus(e.target.value); }}><option value="all">All campuses</option>{data.colleges.map(c => <option key={c.id} value={c.id}>{c.short_name}</option>)}</select></label>
       <label className="admin-select period-select"><CalendarDays size={16} /><select aria-label="Dashboard period" value={days} onChange={e => { setDays(e.target.value); }}><option value="all">All time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select></label></>}
       <ThemeToggle />

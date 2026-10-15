@@ -1,19 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { ArrowRight, Bell, Clock3, Cpu, GraduationCap, Heart, HeartHandshake, LayoutDashboard, LifeBuoy, LogOut, MapPin, Megaphone, Menu, MessageCircle, Plus, ReceiptText, Search, Settings, ShieldCheck, ShoppingBag, Store, Tag, UserRound, X, type LucideIcon } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowRight, Bell, Clock3, Cpu, GraduationCap, Heart, HeartHandshake, LayoutDashboard, LifeBuoy, LogOut, MapPin, Megaphone, Menu, MessageCircle, Plus, ReceiptText, Settings, ShieldCheck, ShoppingBag, Store, Tag, UserRound, X, type LucideIcon } from 'lucide-react';
 import { useApp } from './provider';
 import { ThemeToggle } from './theme';
 
-const OfferSearch = createContext('');
-export const useOfferSearch = () => useContext(OfferSearch);
 type NavGroup = { title: string; links: { path: string; label: string; icon: LucideIcon; badge?: number }[] };
 
 export function MemberShell({ children }: { children: React.ReactNode }) {
-  const { data, toast } = useApp(), router = useRouter(), pathname = usePathname();
-  const [menu, setMenu] = useState(false), [draft, setDraft] = useState(''), [offerSearch, setOfferSearch] = useState('');
+  const { data, toast } = useApp(), pathname = usePathname();
+  const [menu, setMenu] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const student = data.user.role === 'student', base = student ? '/student' : '/business';
   const campus = data.colleges.find(c => c.id === data.user.college_id), unread = data.notifications.filter(n => !n.read).length;
@@ -39,7 +37,7 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
       { path: 'notifications', label: 'Notifications', icon: Bell, badge: unread }, { path: 'settings', label: 'Settings', icon: Settings }, { path: 'support', label: 'Support tickets', icon: LifeBuoy },
     ] },
   ];
-  return <OfferSearch.Provider value={offerSearch}><div className={`control-center member-center ${student ? 'student-center' : 'business-center'}`}>
+  return <div className={`control-center member-center ${student ? 'student-center' : 'business-center'}`}>
     <a href="#main-content" className="skip-link">Skip to content</a>
     {menu && <button className="admin-scrim" aria-label="Dismiss navigation" onClick={() => setMenu(false)} />}
     <aside id="member-navigation" className={`admin-sidebar ${menu ? 'is-open' : ''}`} aria-label={`${student ? 'Student' : 'Business'} sidebar`}>
@@ -53,16 +51,15 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
     </aside>
     <div className="admin-workspace"><header className="admin-topbar">
       <button className="admin-menu" ref={menuButton} aria-label="Open navigation" aria-controls="member-navigation" aria-expanded={menu} onClick={() => setMenu(true)}><Menu size={21} /></button>
-      <form className="admin-search" role="search" onSubmit={e => { e.preventDefault(); if (student) router.push('/student/marketplace?q=' + encodeURIComponent(draft)); else { setOfferSearch(draft.trim()); router.push('/business'); } }}><Search size={17} /><input aria-label={student ? 'Search your campus' : 'Search your offers'} placeholder={student ? 'Search books, rentals, hardware, services…' : 'Search your campus offers…'} value={draft} onChange={e => { setDraft(e.target.value); if (!e.target.value) setOfferSearch(''); }} /><button type="submit" aria-label={student ? 'Search marketplace' : 'Search offers'}>↵</button></form>
       <Link className="member-campus" href={`${base}/profile`}><MapPin size={16} /><span>{campus?.short_name ?? 'Verify campus'}</span></Link>
       <ThemeToggle />
       {student && <Link className="admin-bell member-message-link" href="/student/messages" aria-label="Messages"><MessageCircle size={20} /></Link>}
       <Link className="admin-bell" href={`${base}/notifications`} aria-label={`Notifications, ${unread} unread`}><Bell size={20} />{unread > 0 && <b>{unread}</b>}</Link>
       <Link className="admin-user" href={`${base}/profile`} aria-label="Your profile"><span className="avatar">{data.user.avatar}</span><span><strong>{data.user.name}</strong><small>{data.user.verified ? student ? 'Verified student' : 'Verified business' : 'Verification pending'}</small></span></Link>
-      <Link href={`${base}/${student ? 'create' : 'deals'}`} className="member-header-action" aria-label={student ? 'Sell or share' : 'Manage deals'}><Plus size={16} /><span>{student ? 'Sell or share' : 'Manage deals'}</span></Link>
+      {!student && <Link href="/business/deals" className="member-header-action" aria-label="Manage deals"><Plus size={16} /><span>Manage deals</span></Link>}
     </header>
     {data.demo && <div className="admin-demo"><span><i />LOCAL DEMO <span>· Sample campus data</span></span><Link href="/login">Switch account <ArrowRight size={12} /></Link></div>}
     <main id="main-content" className="member-main">{children}</main><footer className="admin-footer"><span>UniCirq — Your Campus, Connected.</span><Link href={`${base}/support`}>Trust & support</Link></footer></div>
-  </div></OfferSearch.Provider>;
+  </div>;
 }
 
