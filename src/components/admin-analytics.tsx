@@ -10,17 +10,17 @@ import { useAdminFilters } from './admin-filters';
 import { BarChart, DonutChart, TrendChart, type ChartSeries } from './admin-charts';
 
 export const activitySeries: ChartSeries[] = [
-  { key: 'listings', label: 'New listings', color: '#1762ff' },
-  { key: 'orders', label: 'Order requests', color: '#059669' },
-  { key: 'users', label: 'New members', color: '#8b5cf6' },
+  { key: 'listings', label: 'New listings', color: '#288774' },
+  { key: 'orders', label: 'Order requests', color: '#bd945c' },
+  { key: 'users', label: 'New members', color: '#8a8c9d' },
 ];
 export const campusSeries: ChartSeries[] = [
-  { key: 'users', label: 'Members', color: '#8b5cf6' },
-  { key: 'listings', label: 'Listings', color: '#1762ff' },
-  { key: 'orders', label: 'Order requests', color: '#059669' },
+  { key: 'users', label: 'Members', color: '#8a8c9d' },
+  { key: 'listings', label: 'Listings', color: '#288774' },
+  { key: 'orders', label: 'Order requests', color: '#bd945c' },
 ];
-const valueSeries: ChartSeries[] = [{ key: 'orderValue', label: 'Requested order value', color: '#1762ff' }];
-const supportSeries: ChartSeries[] = [{ key: 'open', label: 'Open', color: '#f59e0b' }, { key: 'resolved', label: 'Resolved', color: '#059669' }];
+const valueSeries: ChartSeries[] = [{ key: 'orderValue', label: 'Requested order value', color: '#288774' }];
+const supportSeries: ChartSeries[] = [{ key: 'open', label: 'Open', color: '#b98248' }, { key: 'resolved', label: 'Resolved', color: '#bd945c' }];
 
 function AnalyticsCard({ title, subtitle, icon: Icon, children, wide, id }: { title: string; subtitle: string; icon: LucideIcon; children: React.ReactNode; wide?: boolean; id?: string }) {
   return <section id={id} className={`admin-analytics-card${wide ? ' analytics-wide' : ''}`}>
@@ -41,8 +41,8 @@ export function AdminAnalytics() {
   const campusLabel = campus === 'all' ? 'All campuses' : data.colleges.find(c => c.id === campus)?.name ?? 'Selected campus';
   const verificationRate = totals.students ? Math.round(totals.verifiedStudents / totals.students * 100) : 0;
 
-  return <div className="admin-analytics-page">
-    <header className="admin-analytics-header"><div><span className="analytics-eyebrow">UNICIRQ · CAMPUS INSIGHTS</span><h1>Activity & analytics</h1><p>See how your campus community is growing and where your team’s attention is needed.</p><div className="analytics-scope"><MapPin size={14} /><span>{campusLabel}</span><span>·</span><span>{analytics.rangeLabel}</span></div></div><Link className="analytics-header-action" href="/admin"><ArrowLeft size={15} />Back to dashboard</Link></header>
+  return <div className="admin-analytics-page admin-studio-workspace">
+    <header className="admin-analytics-header"><div><span className="analytics-eyebrow">OBSERVE / UNDERSTAND</span><h1>Campus insights</h1><p>See how your campus community is growing and where your team’s attention is needed.</p><div className="analytics-scope"><MapPin size={14} /><span>{campusLabel}</span><span>·</span><span>{analytics.rangeLabel}</span></div></div><Link className="analytics-header-action" href="/admin"><ArrowLeft size={15} />Campus overview</Link></header>
     <div className="admin-analytics-kpis">
       {[
         { label: 'Listings created', value: totals.listings.toLocaleString('en-IN'), note: analytics.periodLabel, icon: ShoppingBag },
@@ -70,7 +70,7 @@ export function AdminAnalytics() {
         <DonutChart title="Order status" data={analytics.orderStatus} centerLabel="requests" />
       </AnalyticsCard>
       <AnalyticsCard title="Verification applications" subtitle="Current decisions for applications submitted in this period" icon={ClipboardCheck}>
-        <DonutChart title="Verification applications" data={analytics.verificationStatus.map(row => ({ ...row, color: row.label === 'Pending' ? '#f59e0b' : row.label === 'Approved' ? '#059669' : '#ef4444' }))} centerLabel="applications" />
+        <DonutChart title="Verification applications" data={analytics.verificationStatus.map(row => ({ ...row, color: row.label === 'Pending' ? '#b98248' : row.label === 'Approved' ? '#bd945c' : '#bb6c6b' }))} centerLabel="applications" />
         <Link className="analytics-card-link" href="/admin/verifications">Review {totals.pendingVerifications} pending applications →</Link>
       </AnalyticsCard>
       <AnalyticsCard title="Support & disputes" subtitle="Current resolution status of cases opened in this period" icon={LifeBuoy}>
