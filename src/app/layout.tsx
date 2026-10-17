@@ -4,11 +4,9 @@ import { themeInitScript } from '@/lib/theme';
 import './globals.css';
 import './admin.css';
 import './admin-analytics.css';
-import './member.css';
 import './exchange.css';
 import './auth.css';
 import './profile.css';
-
 import './listing-photo.css';
 import './trust-verification.css';
 import './verification-review.css';
@@ -16,10 +14,8 @@ import './verification-workspace.css';
 import './moderation-workspace.css';
 import './admin-support.css';
 import './trust-safety.css';
-import './design-system.css';
-import './redesign-member.css';
-import './redesign-identity.css';
-import './redesign-admin.css';
-import './redesign-community.css';
+import './redesign.css';
+import './landing.css';
+import './dark.css';
 export const metadata:Metadata={title:{default:'UniCirq — Your Campus, Connected.',template:'%s · UniCirq'},description:'Buy, sell, borrow and find your people in your verified campus community.',icons:{icon:'/favicon.svg'}};
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html:themeInitScript}} /></head><body><ThemeProvider>{children}</ThemeProvider></body></html>}
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html:themeInitScript}} /></head><body><ThemeProvider>{children}</ThemeProvider></body></html>}

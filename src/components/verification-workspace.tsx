@@ -30,8 +30,8 @@ export function VerificationWorkspace() {
   function badge(item: Verification) {
     return <span className={`pill ${item.status === 'approved' ? 'green' : item.status === 'rejected' ? 'red' : 'amber'}`}>{statusLabel[item.status]}</span>;
   }
-  return <div className="verification-workspace admin-studio-workspace">
-    <header className="verification-workspace-heading"><div><span className="eyebrow">TRUST & SAFETY</span><h1>Campus verification</h1><p>Help the right people join. Check each application and record a clear decision.</p></div><span className="verification-workspace-emblem"><ShieldCheck size={29} /></span></header>
+  return <div className="verification-workspace">
+    <header className="verification-workspace-heading"><div><span className="eyebrow">TRUST & SAFETY</span><h1>A stronger circle starts with a real check.</h1><p>Review campus eligibility and business applications with a clear, recorded decision.</p></div><span className="verification-workspace-emblem"><ShieldCheck size={29} /></span></header>
     <div className="verification-workspace-metrics" aria-label="Verification summary">
       {[{ label: 'Awaiting review', value: pending.length, icon: Clock3, tone: 'amber' }, { label: 'Campus applications', value: pending.filter(item => item.kind === 'campus').length, icon: GraduationCap, tone: 'blue' }, { label: 'Business applications', value: pending.filter(item => item.kind === 'business').length, icon: Store, tone: 'purple' }, { label: 'Decisions recorded', value: scoped.filter(item => item.status !== 'pending').length, icon: CheckCheck, tone: 'green' }].map(({ label, value, icon: Icon, tone }) => <div key={label}><span className={`metric-icon ${tone}`}><Icon size={20} /></span><div><strong>{value}</strong><span>{label}</span></div></div>)}
     </div>

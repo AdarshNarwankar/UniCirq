@@ -21,7 +21,7 @@ export function TrustSafety() {
   const counts = { reports: signals.reports.length, accounts: signals.suspended.length, disputes: signals.disputed.length, reviews: reviewCount };
   const profile = (id: string) => data.profiles.find(person => person.id === id);
   const campus = (id: string | null) => data.colleges.find(college => college.id === id)?.short_name ?? 'No campus selected';
-  return <div className="trust-safety-workspace admin-studio-workspace">
+  return <div className="trust-safety-workspace">
     <header className="trust-safety-heading"><div><span className="eyebrow">CAMPUS SAFEGUARDS</span><h1>Trust & safety</h1><p>Review community concerns, restricted accounts and outstanding checks in one place.</p></div><span className="trust-safety-emblem"><ShieldCheck size={29} /></span></header>
     <div className="trust-safety-metrics">{[{ tab: 'reports', icon: Flag, tone: 'red' }, { tab: 'accounts', icon: LockKeyhole, tone: 'amber' }, { tab: 'disputes', icon: Wallet, tone: 'purple' }, { tab: 'reviews', icon: ClipboardCheck, tone: 'blue' }].map(({ tab, icon: Icon, tone }) => <Link href={`${adminPaths.safety}?view=${tab}`} key={tab} className="trust-safety-metric"><span className={`metric-icon ${tone}`}><Icon size={21} /></span><div><strong>{counts[tab as typeof tabs[number]]}</strong><span>{labels[tab as typeof tabs[number]]}</span></div></Link>)}</div>
     <div className="trust-safety-note"><ShieldCheck size={21} /><p>Signals come from submitted reports and current account or exchange status. Outstanding work stays visible regardless of when it was created. The period filter applies to the decision history below.</p></div>
