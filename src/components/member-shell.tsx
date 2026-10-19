@@ -15,12 +15,17 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
   const menuButton = useRef<HTMLButtonElement>(null);
   const student = data.user.role === 'student', base = student ? '/student' : '/business';
   const campus = data.colleges.find(c => c.id === data.user.college_id), unread = data.notifications.filter(n => !n.read).length;
+  const detailListing = student && pathname.startsWith('/student/listings/') ? data.listings.find(listing => listing.id === pathname.split('/')[3]) : undefined;
+  const detailSection = detailListing ? detailListing.kind === 'sale' ? detailListing.owner_id === data.user.id ? 'sell' : 'buy' : detailListing.kind === 'rental' ? 'rentals' : detailListing.kind === 'hardware' ? 'hardware' : 'services' : undefined;
   useEffect(() => { const escape = (e: KeyboardEvent) => { if (e.key === 'Escape' && menu) { setMenu(false); menuButton.current?.focus(); } }; window.addEventListener('keydown', escape); return () => window.removeEventListener('keydown', escape); }, [menu]);
   const groups: NavGroup[] = student ? [
     { title: 'DISCOVER', links: [
-      { path: 'marketplace', label: 'Buy & sell', icon: ShoppingBag }, { path: 'rentals', label: 'Rentals', icon: Clock3 },
+      { path: 'buy', label: 'Buy', icon: ShoppingBag }, { path: 'rentals', label: 'Rentals', icon: Clock3 },
       { path: 'hardware', label: 'Project hardware', icon: Cpu }, { path: 'services', label: 'Services & tutors', icon: GraduationCap },
       { path: 'requests', label: 'Student requests', icon: Megaphone }, { path: 'deals', label: 'Campus deals', icon: Tag },
+    ] },
+    { title: 'YOUR LISTINGS', links: [
+      { path: 'sell', label: 'Sell', icon: Store }, { path: 'create', label: 'Share a listing', icon: Plus },
     ] },
     { title: 'YOUR EVERYDAY', links: [
       { path: 'messages', label: 'Messages', icon: MessageCircle }, { path: 'activity', label: 'Orders & activity', icon: ReceiptText },
@@ -44,7 +49,7 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
       <Link className="admin-brand" href={base} onClick={() => setMenu(false)}><span className="uc-mark" aria-hidden="true"><i /><i /></span><span>unicirq.<small>{student ? 'THE CAMPUS SPACE' : 'THE LOCAL WORKSPACE'}</small></span></Link>
       <button className="admin-close" aria-label="Close navigation" onClick={() => { setMenu(false); menuButton.current?.focus(); }}><X size={20} /></button>
       <nav aria-label={`${student ? 'Student' : 'Business'} navigation`}><Link href={base} onClick={() => setMenu(false)} aria-current={pathname === base ? 'page' : undefined} className={`admin-nav-link ${pathname === base ? 'selected' : ''}`}><LayoutDashboard size={18} />{data.user.role === 'student' ? 'Your campus' : 'Overview'}</Link>
-        {groups.map(group => <div className="admin-nav-group" key={group.title}><span>{group.title}</span>{group.links.map(({ path, label, icon: Icon, badge }) => { const active = pathname === `${base}/${path}` || (path === 'marketplace' && pathname.startsWith('/student/listings/')); return <Link key={path} href={`${base}/${path}`} aria-current={active ? 'page' : undefined} className={`admin-nav-link ${active ? 'selected' : ''}`} onClick={() => setMenu(false)}><Icon size={17} />{label}{Boolean(badge) && <b>{badge}</b>}</Link>; })}</div>)}
+        {groups.map(group => <div className="admin-nav-group" key={group.title}><span>{group.title}</span>{group.links.map(({ path, label, icon: Icon, badge }) => { const active = pathname === `${base}/${path}` || pathname.startsWith(`${base}/${path}/`) || (student && path === detailSection) || (student && path === 'buy' && pathname === '/student/marketplace'); return <Link key={path} href={`${base}/${path}`} aria-current={active ? 'page' : undefined} className={`admin-nav-link ${active ? 'selected' : ''}`} onClick={() => setMenu(false)}><Icon size={17} />{label}{Boolean(badge) && <b>{badge}</b>}</Link>; })}</div>)}
       </nav>
       <div className="admin-sidebar-help"><span className="help-orbit"><ShieldCheck size={27} /></span><strong>{student ? 'Your campus. Your circle.' : 'Grow with your campus.'}</strong><p>{student ? 'Good finds, helpful people, and a community close to home.' : 'Make everyday student life a little better with a great offer.'}</p><Link href={`${base}/${student ? 'create' : 'deals'}`} onClick={() => setMenu(false)}>{student ? 'Create a listing' : 'Manage your offers'}<ArrowRight size={13} /></Link></div>
       <button className="admin-signout" onClick={async () => { try { const r = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) }); if (!r.ok) throw new Error(); window.location.assign('/login'); } catch { toast('Unable to sign out. Please try again.'); } }}><LogOut size={15} />Sign out</button>

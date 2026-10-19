@@ -7,8 +7,9 @@ import { useApp } from './provider';
 import { ListingCard, ProductImage } from './catalogue';
 import { Empty } from './primitives';
 import { moneyLabel } from '@/lib/domain';
+import { buyListings } from '@/lib/student-marketplace';
 
-const quick = [['marketplace', 'Good finds', 'Buy & sell', ShoppingBag], ['rentals', 'Just for a while', 'Rentals', Clock3], ['hardware', 'Build something', 'Project hardware', Cpu], ['services', 'Find your person', 'Skills & tutors', GraduationCap], ['requests', 'Ask the campus', 'Requests', Megaphone], ['deals', 'A little extra', 'Local offers', Tag]] as const;
+const quick = [['buy', 'Buy', 'Items from students', ShoppingBag], ['rentals', 'Just for a while', 'Rentals', Clock3], ['hardware', 'Build something', 'Project hardware', Cpu], ['services', 'Find your person', 'Skills & tutors', GraduationCap], ['requests', 'Ask the campus', 'Requests', Megaphone], ['deals', 'A little extra', 'Local offers', Tag]] as const;
 const formatDate = (value: string) => new Date(value.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
 function Updates({ base }: { base: '/student' | '/business' }) {
@@ -18,9 +19,9 @@ function Updates({ base }: { base: '/student' | '/business' }) {
 
 export function StudentDashboard() {
   const { data } = useApp();
-  const ownListings = data.listings.filter(l => l.owner_id === data.user.id && l.status === 'active');
+  const ownListings = data.listings.filter(l => l.owner_id === data.user.id && l.kind === 'sale' && l.status === 'active');
   const activity = data.orders.filter(o => ['requested', 'accepted', 'handed_over', 'disputed'].includes(o.status));
-  const listings = data.listings.filter(l => l.status === 'active').slice(0, 4);
+  const listings = buyListings(data.listings, data.user).slice(0, 4);
   const featured = listings.find(listing => listing.image) ?? listings[0];
   const requests = data.requests.filter(r => r.status === 'open').slice(0, 3);
   const today = new Date().toISOString().slice(0, 10);
@@ -33,7 +34,8 @@ export function StudentDashboard() {
         <span className="uc-label">{campus?.short_name ?? 'YOUR CAMPUS'} / THE EVERYDAY EDIT</span>
         <h1>Your campus,<br /><em>in good company.</em></h1>
         <p>Good finds, useful skills, and people just around the corner.</p>
-        <Form action="/student/marketplace" className="uc-campus-search" role="search"><Search size={20}/><input name="q" aria-label="Search your campus" placeholder="What are you looking for?"/><button type="submit" aria-label="Search campus listings"><ArrowRight size={20}/></button></Form>
+        <Form action="/student/buy" className="uc-campus-search" role="search"><Search size={20}/><input name="q" aria-label="Search items to buy" placeholder="Search items to buy…"/><button type="submit" aria-label="Search items to buy"><ArrowRight size={20}/></button></Form>
+        <div className="uc-trading-actions"><Link href="/student/buy" className="button primary"><ShoppingBag size={17}/>Buy on campus<ArrowUpRight size={15}/></Link><Link href="/student/sell" className="button secondary"><Plus size={17}/>Sell an item<ArrowUpRight size={15}/></Link></div>
         <Link className="uc-campus-membership" href="/student/profile"><ShieldCheck size={16}/>{data.user.verified ? 'You’re in the circle. Campus verified.' : 'Make it official. Verify your campus.'}<ArrowUpRight size={14}/></Link>
       </div>
       <div className="uc-desk-feature">
@@ -43,10 +45,10 @@ export function StudentDashboard() {
       </div>
     </section>
     <div className="uc-stat-strip">{[
-      [ownListings.length, 'Active listings', '/student/activity', ShoppingBag], [data.saved.length, 'Saved finds', '/student/saved', Heart], [data.conversations.length, 'Conversations', '/student/messages', MessageCircle], [activity.length, 'Ongoing exchanges', '/student/activity', ReceiptText],
+      [ownListings.length, 'Items for sale', '/student/sell', ShoppingBag], [data.saved.length, 'Saved finds', '/student/saved', Heart], [data.conversations.length, 'Conversations', '/student/messages', MessageCircle], [activity.length, 'Ongoing exchanges', '/student/activity', ReceiptText],
     ].map(([value, label, href, Icon]) => { const StatIcon = Icon as typeof Heart; return <Link href={String(href)} key={String(label)}><StatIcon size={18} strokeWidth={1.5} /><strong>{String(value)}</strong><span>{String(label)}</span><ArrowUpRight size={14} /></Link>; })}</div>
     <nav className="uc-category-rail" aria-label="Explore campus categories">{quick.map(([path, title, label, Icon], index) => <Link href={`/student/${path}`} key={path}><span className={`uc-category-symbol symbol-${index}`}><Icon size={26} strokeWidth={1.4} /></span><strong>{title}</strong><span>{label}<ArrowUpRight size={12} /></span></Link>)}</nav>
-    <section className="uc-work-section"><header><div><span className="eyebrow">THE CAMPUS COLLECTION</span><h2>Fresh finds. New chapters.</h2></div><Link className="text-link" href="/student/marketplace">See everything<ArrowUpRight size={17} /></Link></header>{listings.length ? <div className="listing-grid uc-home-listings">{listings.map(listing => <ListingCard key={listing.id} listing={listing} />)}</div> : <Empty title="Every circle starts somewhere." body="Give your campus its first good find." action={<Link className="button primary" href="/student/create">Share a listing<Plus size={16} /></Link>} />}</section>
+    <section className="uc-work-section"><header><div><span className="eyebrow">BUY FROM YOUR CAMPUS</span><h2>Fresh finds. New chapters.</h2></div><Link className="text-link" href="/student/buy">Browse items<ArrowUpRight size={17} /></Link></header>{listings.length ? <div className="listing-grid uc-home-listings">{listings.map(listing => <ListingCard key={listing.id} listing={listing} />)}</div> : <Empty title="Good finds are on the way." body="Items from other students will appear here. Have something to sell? Give it a new chapter." action={<Link className="button primary" href="/student/sell/new">Sell an item<Plus size={16} /></Link>} />}</section>
     <div className="uc-community-columns"><section className="uc-work-section uc-noticeboard"><header><div><span className="eyebrow">THE CAMPUS NOTICEBOARD</span><h2>Anyone got a…?</h2></div><Link href="/student/requests" className="uc-circle-button" aria-label="View campus requests"><ArrowUpRight size={20} /></Link></header>{requests.length ? requests.map((request, index) => <Link href="/student/requests" className="uc-request-slip" key={request.id}><span className="uc-request-index">0{index + 1}</span><div><small>{request.category}</small><h3>{request.title}</h3><p>{request.description}</p><strong>Budget {moneyLabel(request.budget)}</strong></div><ArrowUpRight size={19} /></Link>) : <div className="uc-quiet"><Megaphone size={28} /><p>Need something? Put the word out to your campus.</p><Link className="text-link" href="/student/requests">Post a request<ArrowRight size={15} /></Link></div>}</section>
     <section className="uc-work-section uc-next-up"><header><div><span className="eyebrow">KEEP GOOD THINGS MOVING</span><h2>Next on your list.</h2></div><Link href="/student/activity" aria-label="All exchange activity"><ArrowUpRight size={20} /></Link></header>{activity.length ? activity.slice(0, 4).map(order => <Link className="uc-exchange-row" href={`/student/activity?order=${order.id}`} key={order.id}><span className="uc-exchange-icon"><ReceiptText size={20} /></span><div><small>{order.status.replaceAll('_', ' ')}</small><strong>{order.terms_snapshot.title}</strong><span>{order.kind === 'rental' && order.ends_on ? `Return by ${formatDate(order.ends_on)}` : 'View the next step'}</span></div><ArrowUpRight size={17} /></Link>) : <div className="uc-quiet"><Check size={30} /><h3>A little breathing room.</h3><p>Your requests, meetups and returns will appear here.</p></div>}<Link className="uc-trust-reminder" href="/student/support"><ShieldCheck size={20} /><span>Meet in public. Inspect together.<br /><strong>Good exchanges start with care.</strong></span></Link></section></div>
     <div className="uc-community-columns"><Updates base="/student" /><section className="uc-work-section uc-perks"><header><div><span className="eyebrow">AROUND THE CORNER</span><h2>Local love.</h2></div><Link href="/student/deals" aria-label="View local offers"><ArrowUpRight size={20} /></Link></header>{deals.length ? deals.map(deal => <Link href="/student/deals" className="uc-perk-row" key={deal.id}><Tag size={23} /><div><small>{data.businesses.find(b => b.id === deal.business_id)?.name ?? 'Campus business'}</small><strong>{deal.title}</strong></div><ArrowUpRight size={19} /></Link>) : <div className="uc-quiet"><Store size={25} /><p>Offers from your campus businesses will find a home here.</p></div>}</section></div>

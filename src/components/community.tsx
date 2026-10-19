@@ -17,14 +17,14 @@ export function Requests() {
   <div className="tabs"><button className={!mine?'active':''} aria-pressed={!mine} onClick={()=>setMine(false)}>All requests</button><button className={mine?'active':''} aria-pressed={mine} onClick={()=>setMine(true)}>My requests</button></div>
   {rows.length?<div className="request-grid">{rows.map(r=>{
    const owner=data.profiles.find(p=>p.id===r.owner_id);
-   const matches=data.listings.filter(l=>l.category===r.category&&l.status==='active').length;
+   const matches=([{kind:'sale',href:'/student/buy',label:'items to buy'},{kind:'rental',href:'/student/rentals',label:'rentals'},{kind:'hardware',href:'/student/hardware',label:'hardware listings'},{kind:'service',href:'/student/services',label:'student services'}] as const).map(group=>({...group,count:data.listings.filter(l=>l.category===r.category&&l.kind===group.kind&&l.status==='active'&&(group.kind!=='sale'||l.owner_id!==data.user.id)).length})).filter(group=>group.count>0);
    return <article className="panel padded request-card" key={r.id}>
     <div className="row-between"><Badge tone="blue">{r.category}</Badge><span className="request-status muted small">{r.status}</span></div>
     <h2>{r.title}</h2><p>{r.description}</p>
     <strong className="request-budget">Budget · {moneyLabel(r.budget)}</strong>
     <div className="request-card-footer">
      <div className="request-owner"><span className="avatar small-avatar">{owner?.avatar??'UC'}</span><span>{owner?.name??'Campus member'}</span>{owner?.verified&&<ShieldCheck size={15}/>}</div>
-     {matches>0&&<Link href={'/student/marketplace?q='+encodeURIComponent(r.category)} className="match-hint">{matches} listings in this category</Link>}
+     {matches.map(group=><Link key={group.kind} href={group.href+'?q='+encodeURIComponent(r.category)} className="match-hint">{group.count} {group.label} in this category</Link>)}
      {r.owner_id===data.user.id?<ActionButton className="button secondary full" disabled={r.status==='fulfilled'} onAction={()=>run({type:'fulfill_request',request_id:r.id},'Request marked fulfilled')}>{r.status==='fulfilled'?'Fulfilled':'Mark as fulfilled'}</ActionButton>:<ActionButton disabled={r.status!=='open'||!data.user.verified} className="button secondary full" onAction={async()=>{const c=await run({type:'start_conversation',request_id:r.id});router.push('/student/messages?conversation='+c.id)}}><MessageCircle size={16}/>I can help</ActionButton>}
     </div>
    </article>;
