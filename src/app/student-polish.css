@@ -1,0 +1,252 @@
+/* Student discovery, requests, and inbox: compact controls and clear selection. */
+.uc-catalogue .catalogue-type-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 0 18px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+.catalogue-type-switcher a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background .18s, border-color .18s, color .18s;
+}
+.catalogue-type-switcher a:hover { color: var(--ink); border-color: var(--muted); }
+.catalogue-type-switcher a[aria-current=page] {
+  color: #fff;
+  border-color: #244ce4;
+  background: #244ce4;
+  box-shadow: inset 0 0 0 1px #ffffff14;
+}
+html[data-theme=dark] .catalogue-type-switcher a[aria-current=page] {
+  background: var(--action);
+  border-color: #849eec;
+  color: #fff;
+}
+.uc-catalogue .uc-category-tabs { gap: 7px; padding: 4px 0 12px; margin-bottom: 18px; }
+.uc-catalogue .uc-category-tabs button {
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.uc-catalogue .uc-category-tabs button[aria-pressed=true] {
+  background: var(--sage);
+  border-color: var(--sage-ink);
+  color: var(--ink);
+}
+.uc-catalogue .filter-bar { min-width: 0; }
+.uc-catalogue .search-field:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
+.uc-catalogue .search-field input:focus-visible { outline: none; }
+
+/* Requests retain full descriptions while removing decorative empty space. */
+.student-requests .page-heading { padding-bottom: 20px; margin-bottom: 18px; }
+.student-requests .page-heading p { margin-top: 7px; line-height: 1.55; }
+.student-requests .tabs { margin-bottom: 18px; }
+.student-requests .request-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+.student-requests .request-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 19px;
+}
+.student-requests .request-card .row-between { gap: 8px; align-items: flex-start; }
+.student-requests .request-card .pill { white-space: normal; font-size: 10px; }
+.student-requests .request-status { font-size: 11px; font-weight: 600; text-transform: capitalize; }
+.student-requests .request-card h2 {
+  font-size: 19px;
+  line-height: 1.35;
+  letter-spacing: -.4px;
+  margin: 12px 0 7px;
+  overflow-wrap: anywhere;
+}
+.student-requests .request-card > p {
+  min-height: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.student-requests .request-budget { margin-top: 12px; font-size: 12px; font-weight: 600; }
+.student-requests .request-card-footer { padding-top: 13px; margin-top: auto; }
+.student-requests .request-owner { margin-top: 0; font-size: 11px; color: var(--muted); }
+.student-requests .request-owner > span:nth-child(2) { overflow-wrap: anywhere; min-width: 0; }
+.student-requests .request-owner .avatar { width: 26px; height: 26px; font-size: 10px; }
+.student-requests .match-hint { font-size: 11px; margin-top: 9px; }
+.student-requests .request-card .action-wrap { margin-top: 12px; }
+.student-requests .request-card .button { min-height: 42px; padding: 10px 12px; }
+.uc-student-home .uc-noticeboard { padding: 22px; }
+.uc-student-home .uc-noticeboard > header { margin-bottom: 16px; }
+.uc-student-home .uc-request-slip { gap: 11px; padding: 14px 0; }
+.uc-student-home .uc-request-slip h3 { font-size: 16px; margin: 4px 0; }
+.uc-student-home .uc-request-slip p { line-height: 1.5; }
+.uc-student-home .uc-request-slip strong { margin-top: 7px; }
+
+/* Separate inbox and conversation surfaces give each pane a clear boundary. */
+.student-inbox .exchange-messaging {
+  display: grid;
+  grid-template-columns: minmax(250px, 31%) minmax(0, 1fr);
+  gap: 16px;
+  height: min(700px, calc(100dvh - 250px));
+  min-height: 480px;
+  max-height: none;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.student-inbox .conversation-list,
+.student-inbox .chat-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+}
+.student-inbox .conversation-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.student-inbox .conversation-list-heading h2 { font-size: 19px; letter-spacing: -.5px; }
+.student-inbox .conversation-list-heading p { color: var(--muted); font-size: 11px; margin-top: 4px; line-height: 1.4; }
+.student-inbox .conversation-scroll { overflow-y: auto; min-height: 0; padding: 7px; scrollbar-width: thin; }
+.student-inbox .conversation {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 10px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  margin: 2px 0;
+  background: transparent;
+}
+.student-inbox .conversation:hover:not(.active) { background: var(--surface-soft); }
+.student-inbox .conversation.active {
+  padding: 13px 10px;
+  background: var(--pale);
+  border: 1px solid var(--blue);
+  box-shadow: inset 3px 0 0 var(--blue);
+}
+.student-inbox .conversation > .avatar { width: 34px; height: 34px; margin-top: 1px; font-size: 11px; }
+.student-inbox .conversation-summary { display: block; flex: 1; min-width: 0; }
+.student-inbox .conversation-topline { display: flex; align-items: baseline; gap: 6px; }
+.student-inbox .conversation-topline strong { min-width: 0; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; font-weight: 600; }
+.student-inbox .conversation-topline time { color: var(--muted); white-space: nowrap; font-size: 9px; font-weight: 500; }
+.student-inbox .conversation small { max-width: none; margin-top: 5px; font-size: 11px; line-height: 1.4; font-weight: 500; }
+.student-inbox .conversation .conversation-context { color: var(--blue); margin-top: 5px; font-size: 10px; font-weight: 600; }
+.student-inbox .conversation-arrow { display: none; }
+.student-inbox .chat-heading { flex-shrink: 0; min-height: 76px; padding: 15px 20px; gap: 11px; }
+.student-inbox .chat-person { min-width: 0; flex: 1; }
+.student-inbox .chat-person strong { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; margin-bottom: 3px; }
+.student-inbox .chat-person > small { display: block; color: var(--muted); font-size: 11px; font-weight: 500; }
+.student-inbox .chat-person .verified { font-size: 10px; }
+.student-inbox .chat-activity-link { font-size: 11px; flex-shrink: 0; }
+.student-inbox .inbox-back { display: none; }
+.student-inbox .exchange-chat-context {
+  margin: 13px 16px 0;
+  padding: 12px;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-soft);
+}
+.student-inbox .exchange-chat-context strong { white-space: normal; font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+.student-inbox .exchange-chat-context :is(small, div > span) { color: var(--muted); font-size: 10px; font-weight: 500; }
+.student-inbox .exchange-chat-context .category-icon { width: 32px; height: 36px; }
+.student-inbox .exchange-chat-context > .text-link { font-size: 10px; gap: 4px; flex-shrink: 0; }
+.student-inbox .chat-safety { padding: 10px 16px; font-size: 10px; font-weight: 500; gap: 7px; background: var(--surface); border: 0; border-radius: 0; line-height: 1.5; align-items: flex-start; }
+.student-inbox .chat-safety svg { margin-top: 1px; color: var(--sage-ink); }
+.student-inbox .message-list { min-height: 0; padding: 20px; gap: 12px; background: var(--background); border-top: 1px solid var(--line); overscroll-behavior: contain; scrollbar-width: thin; }
+.student-inbox .message { max-width: 82%; width: fit-content; padding: 11px 14px; border-radius: 11px; margin: 0; overflow-wrap: anywhere; }
+.student-inbox .message p { font-size: 13px; font-weight: 500; line-height: 1.55; white-space: pre-wrap; }
+.student-inbox .message time { display: block; font-size: 9px; font-weight: 500; line-height: 1.4; margin-top: 6px; }
+.student-inbox .message.outgoing { align-self: flex-end; background: #244ce4; color: #fff; border: 1px solid #244ce4; border-bottom-right-radius: 3px; }
+.student-inbox .message.outgoing p { color: #fff; }
+.student-inbox .message.outgoing time { color: #e3e9ff; }
+.student-inbox .message.incoming { align-self: flex-start; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-bottom-left-radius: 3px; }
+.student-inbox .message.incoming time { color: var(--muted); }
+.student-inbox .empty-chat { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 9px; text-align: center; padding: 25px 12px; color: var(--muted); }
+.student-inbox .empty-chat strong { color: var(--ink); font-size: 15px; font-weight: 600; }
+.student-inbox .empty-chat span { font-size: 12px; line-height: 1.5; }
+.student-inbox .message-compose { flex-shrink: 0; padding: 13px 16px; gap: 10px; align-items: center; }
+.student-inbox .message-compose input { min-height: 44px; background: var(--background); font-size: 13px; padding: 11px 13px; }
+.student-inbox .message-compose .button { width: 44px; min-width: 44px; min-height: 44px; padding: 10px; border-radius: 5px; }
+.student-inbox .inbox-verification-note { font-size: 11px; line-height: 1.5; color: var(--muted); padding: 0 16px 12px; }
+.student-inbox .inbox-verification-note .text-link { font-size: inherit; }
+.student-inbox .chat-pane > .form-error { padding: 0 16px 12px; margin: 0; }
+html[data-theme=dark] .student-inbox .message.outgoing { background: var(--action); border-color: var(--action); }
+
+@media (max-width: 1000px) {
+  .student-inbox .exchange-messaging { grid-template-columns: minmax(235px, 35%) minmax(0, 1fr); gap: 12px; }
+  .student-inbox .conversation-list-heading { padding: 16px 14px; }
+  .student-inbox .chat-heading { padding-inline: 15px; }
+  .student-inbox .exchange-chat-context { flex-wrap: wrap; margin-inline: 12px; }
+  .student-inbox .exchange-chat-context > .text-link { margin-left: 42px; }
+}
+@media (max-width: 700px) {
+  .uc-catalogue .catalogue-type-switcher { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+  .catalogue-type-switcher a { padding-inline: 9px; font-size: 11px; gap: 7px; }
+  .uc-catalogue .uc-category-tabs { gap: 5px; margin-bottom: 12px; }
+  .uc-catalogue .uc-category-tabs button { font-size: 11px; padding-inline: 10px; }
+  .student-requests .page-heading { align-items: flex-start; gap: 13px; }
+  .student-requests .request-grid { grid-template-columns: 1fr; gap: 12px; }
+  .student-requests .request-card { padding: 17px; }
+  .student-requests .request-card h2 { font-size: 18px; }
+  .uc-student-home .uc-noticeboard { padding: 19px; }
+  .student-inbox .page-heading { margin-bottom: 18px; padding-bottom: 20px; }
+  .student-inbox .exchange-messaging { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; height: calc(100dvh - 210px); min-height: 450px; max-height: 760px; }
+  .student-inbox .conversation-list { min-height: 0; flex-direction: column; }
+  .student-inbox .conversation-list-heading { padding: 17px; }
+  .student-inbox .conversation-list-heading h2 { font-size: 21px; }
+  .student-inbox .conversation-scroll { padding: 8px; }
+  .student-inbox .conversation { padding: 15px 12px; gap: 12px; }
+  .student-inbox .conversation.active { padding: 15px 12px; }
+  .student-inbox .conversation > .avatar { height: 38px; width: 38px; }
+  .student-inbox .conversation-topline strong { font-size: 13px; }
+  .student-inbox .conversation-topline time { font-size: 10px; }
+  .student-inbox .conversation-arrow { display: block; align-self: center; color: var(--muted); }
+  .student-inbox .chat-pane { display: none; }
+  .student-inbox .mobile-chat-open .conversation-list { display: none; }
+  .student-inbox .mobile-chat-open .chat-pane { display: flex; }
+  .student-inbox .inbox-back { display: inline-flex; flex-shrink: 0; width: 34px; min-width: 34px; height: 38px; border-radius: 4px; }
+  .student-inbox .chat-pane > .inbox-back { width: auto; align-self: flex-start; margin: 12px; }
+  .student-inbox .chat-heading { min-height: 72px; padding: 12px 10px; gap: 8px; }
+  .student-inbox .chat-heading > .avatar { height: 32px; width: 32px; }
+  .student-inbox .chat-person strong { font-size: 12px; }
+  .student-inbox .chat-activity-link { font-size: 10px; gap: 4px; }
+  .student-inbox .exchange-chat-context { margin: 10px 10px 0; padding: 10px; gap: 8px; }
+  .student-inbox .exchange-chat-context strong { font-size: 11px; }
+  .student-inbox .exchange-chat-context > .text-link { margin-left: 40px; min-height: 24px; }
+  .student-inbox .chat-safety { font-size: 9px; padding: 9px 12px; justify-content: flex-start; }
+  .student-inbox .message-list { padding: 16px 12px; gap: 10px; }
+  .student-inbox .message { max-width: 88%; padding: 10px 12px; }
+  .student-inbox .message p { font-size: 12px; }
+  .student-inbox .message-compose { padding: 11px 10px; gap: 8px; }
+  .student-inbox .message-compose input { font-size: 13px; }
+}

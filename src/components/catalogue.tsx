@@ -10,6 +10,12 @@ import { Badge, Empty, Verified } from './primitives';
 
 const kindLabels={sale:'Buy & sell',rental:'Rentals',hardware:'Project hardware',service:'Student services'};
 const kindIcons={sale:ShoppingBag,rental:Clock3,hardware:Cpu,service:GraduationCap};
+const catalogueTypes = [
+ {href:'/student/marketplace',label:'All finds',kind:undefined,Icon:ShoppingBag},
+ {href:'/student/rentals',label:'Rentals',kind:'rental',Icon:Clock3},
+ {href:'/student/hardware',label:'Project hardware',kind:'hardware',Icon:Cpu},
+ {href:'/student/services',label:'Skills & tutors',kind:'service',Icon:GraduationCap},
+] as const;
 export function ProductImage({listing}:{listing:Listing}){const [failed,setFailed]=useState(false);const Icon=kindIcons[listing.kind];return listing.image&&!failed?<img src={listing.image} alt={listing.title} loading="lazy" onError={()=>setFailed(true)}/>:<div className={'product-placeholder '+listing.kind}><Icon size={48} strokeWidth={1.2}/><span>{listing.category}</span></div>}
 export function ListingCard({listing:l}:{listing:Listing}){
  const {data,run,toast}=useApp();const saved=data.saved.some(s=>s.listing_id===l.id);const seller=data.profiles.find(p=>p.id===l.owner_id);const [busy,setBusy]=useState(false);
@@ -21,7 +27,8 @@ export function Catalogue({kind,savedOnly=false,query=''}:{kind?:Kind;savedOnly?
  const title=savedOnly?'Good finds, kept close.':kind==='rental'?'Own the moment. Rent the gear.':kind==='hardware'?'Build your next big idea.':kind==='service'?'There’s talent all around you.':'Your next find is right here.';
  const CatalogueIcon = savedOnly ? Heart : kindIcons[kind ?? 'sale'];
  return <div className="uc-catalogue"><header className={`uc-catalogue-heading catalogue-${savedOnly ? 'saved' : kind ?? 'all'}`}><div><span className="eyebrow">{savedOnly?'YOUR PERSONAL COLLECTION':kind?kindLabels[kind].toUpperCase():'THE CAMPUS MARKETPLACE'}</span><h1>{title}</h1><p>{savedOnly?'A little collection of things you have your eye on.':'From someone on campus. For someone like you.'}</p><Link className="text-link" href="/student/create">Have something to pass on?<Plus size={16}/></Link></div><div className="uc-catalogue-stamp" aria-hidden="true"><span>THE CAMPUS CIRCLE</span><CatalogueIcon size={44} strokeWidth={1}/><strong>{savedOnly?'Keep it close.':kind==='rental'?'Own the moment.':kind==='service'?'Meet your people.':'Find something good.'}</strong><span>NEARBY / BY STUDENTS</span></div></header>
- <nav className="uc-category-tabs" aria-label="Listing categories">{['All categories',...categories].map(c=><button type="button" key={c} aria-pressed={category===c} onClick={()=>setCategory(c)}>{c==='All categories'?'All finds':c}</button>)}</nav>
+ {!savedOnly&&<nav className="catalogue-type-switcher" aria-label="Discover listing types">{catalogueTypes.map(({href,label,kind:tabKind,Icon})=><Link key={href} href={href} aria-current={kind===tabKind?'page':undefined}><Icon size={17}/><span>{label}</span></Link>)}</nav>}
+ <nav className="uc-category-tabs" aria-label="Listing categories">{['All categories',...categories].map(c=><button type="button" key={c} aria-pressed={category===c} onClick={()=>setCategory(c)}>{c}</button>)}</nav>
  <div className="filter-bar"><label className="search-field"><Search size={18}/><input aria-label="Search listings" placeholder="Search for your next find…" value={search} onChange={e=>setSearch(e.target.value)}/><span className="uc-search-caption">ON YOUR CAMPUS</span></label><select aria-label="Sort listings" value={sort} onChange={e=>setSort(e.target.value)}><option value="recent">Newest first</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option></select></div><div className="results-meta"><span>{listings.length} {listings.length===1?'find':'finds'} on your campus</span><Verified/></div>{listings.length?<div className="listing-grid catalogue-grid">{listings.map(l=><ListingCard key={l.id} listing={l}/>)}</div>:<Empty title={savedOnly?'Your collection starts here.':'No finds just yet.'} body={savedOnly?'Tap the heart on a listing to keep it here.':'Try another search, or post a campus request.'} action={<Link className="button secondary" href={savedOnly?'/student/marketplace':'/student/requests'}>{savedOnly?'Explore the marketplace':'Post a request'}</Link>}/>}</div>
 }
 export { ListingDetail } from './listing-detail';
