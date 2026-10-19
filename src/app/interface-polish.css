@@ -61,6 +61,7 @@ html[data-theme=dark] .control-center .admin-select:not(.period-select) option {
 .control-center :is(.notification-row, .profile-identity, .trust-section-title, .business-card) :is(p, h2, h3) { overflow-wrap: anywhere; }
 
 @media (max-width: 700px) {
+  html .control-center :is(.admin-main, .member-main) :is(input, select, textarea) { font-size: 16px; }
   .control-center .admin-topbar { flex-wrap: wrap; height: auto; padding-block: 10px; gap: 10px; }
   .control-center .admin-topbar .admin-select { max-width: calc(100% - 46px); min-width: 0; }
   .control-center .admin-topbar .admin-select select { max-width: min(170px, 40vw); font-size: 11px; }
