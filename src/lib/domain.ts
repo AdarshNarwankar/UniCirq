@@ -42,7 +42,7 @@ export const commandSchema = z.discriminatedUnion('type',[
  z.object({type:z.literal('create_ticket'),subject:short,body:detail,kind:z.enum(['support','dispute','report','managed_sale']),order_id:id.optional(),listing_id:id.optional()}),
  z.object({type:z.literal('update_profile'),name:z.string().trim().min(2).max(60),bio:z.string().trim().max(500),course:z.string().trim().max(80),year:z.string().max(20)}),
  z.object({type:z.literal('request_verification'),college_id:id,kind:z.enum(['campus','business']),detail}),
- z.object({type:z.literal('read_notifications')}),
+ z.object({type:z.literal('read_notifications'),notification_id:id.optional()}),
  z.object({type:z.literal('create_deal'),title:short,description:detail,code:z.string().trim().min(2).max(24).regex(/^[A-Za-z0-9-]+$/),expires_on:date}),
  z.object({type:z.literal('moderate'),entity:z.enum(['listing','deal','verification','ticket']),target_id:id,decision:z.enum(['approve','remove','reject','resolve']),reason:z.string().trim().min(5).max(500),review_method:z.enum(['campus_email','campus_office','in_person','public_business']).optional(),evidence_checked:z.boolean().optional()})
 ]);

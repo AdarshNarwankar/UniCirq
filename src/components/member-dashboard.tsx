@@ -8,13 +8,14 @@ import { ListingCard, ProductImage } from './catalogue';
 import { Empty } from './primitives';
 import { moneyLabel } from '@/lib/domain';
 import { buyListings } from '@/lib/student-marketplace';
+import { NotificationLink } from './notification-link';
 
 const quick = [['buy', 'Buy', 'Items from students', ShoppingBag], ['rentals', 'Just for a while', 'Rentals', Clock3], ['hardware', 'Build something', 'Project hardware', Cpu], ['services', 'Find your person', 'Skills & tutors', GraduationCap], ['requests', 'Ask the campus', 'Requests', Megaphone], ['deals', 'A little extra', 'Local offers', Tag]] as const;
 const formatDate = (value: string) => new Date(value.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
 function Updates({ base }: { base: '/student' | '/business' }) {
   const { data } = useApp();
-  return <section className="uc-work-section uc-updates"><header><div><span className="eyebrow">IN YOUR CIRCLE</span><h2>A little heads-up.</h2></div><Link href={`${base}/notifications`} aria-label="All notifications"><Bell size={20} /></Link></header>{data.notifications.length ? data.notifications.slice(0, 3).map(n => <Link className="uc-update-row" key={n.id} href={n.href.replace(/^\/(student|business|admin)/, base)}><span className={`update-dot ${n.read ? 'read' : ''}`} /><div><strong>{n.title}</strong><p>{n.body}</p><small>{formatDate(n.created_at)}</small></div><ArrowUpRight size={16} /></Link>) : <div className="uc-quiet"><Check size={25} /><p>All caught up. We’ll keep you in the loop here.</p></div>}</section>;
+  return <section className="uc-work-section uc-updates"><header><div><span className="eyebrow">IN YOUR CIRCLE</span><h2>A little heads-up.</h2></div><Link href={`${base}/notifications`} aria-label="All notifications"><Bell size={20} /></Link></header>{data.notifications.length ? data.notifications.slice(0, 3).map(n => <NotificationLink className="uc-update-row" key={n.id} notification={n}><span className={`update-dot ${n.read ? 'read' : ''}`} /><div><strong>{n.title}</strong><p>{n.body}</p><small>{formatDate(n.created_at)}</small></div><ArrowUpRight size={16} /></NotificationLink>) : <div className="uc-quiet"><Check size={25} /><p>All caught up. We’ll keep you in the loop here.</p></div>}</section>;
 }
 
 export function StudentDashboard() {
