@@ -1,0 +1,91 @@
+/* Shared readability and viewport behavior across all three workspaces. */
+body { font-weight: 500; }
+:where(.control-center, .account-shell, .uc-landing) :is(small, .fineprint, .eyebrow, .section-label) {
+  font-weight: 500;
+}
+.control-center :is(.admin-nav-link, .admin-user small, .verified, .control-table th, .member-offer-table th, .table-wrap th) {
+  font-weight: 500;
+}
+.control-center :is(.listing-meta, .seller-line, .admin-tag, .pill, .record-title small, .verification-record small, .panel-footnote) {
+  font-weight: 500;
+}
+
+/* A light location chip keeps the requested black type legible in dark mode. */
+html[data-theme=dark] .control-center :is(.member-campus, .admin-select:not(.period-select)) {
+  background: #e8eddf;
+  border: 1px solid #bac6b0;
+  border-radius: 5px;
+  color: #000;
+}
+html[data-theme=dark] .control-center .member-campus { padding: 8px 10px; }
+html[data-theme=dark] .control-center :is(.member-campus > svg, .admin-select:not(.period-select) > svg) { color: #283b23; }
+html[data-theme=dark] .control-center .admin-select:not(.period-select) select {
+  color: #000;
+  background: transparent;
+  color-scheme: light;
+}
+html[data-theme=dark] .control-center .admin-select:not(.period-select) option { color: #000; background: #f7f8f2; }
+.control-center .member-campus { min-width: 0; }
+.control-center .member-campus span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Only dialog contents scroll; the title and close control always stay in reach. */
+.modal {
+  max-height: min(90dvh, 960px);
+  overflow: hidden;
+}
+.modal .modal-content {
+  display: flex;
+  flex-direction: column;
+  max-height: min(90dvh - 2px, 958px);
+  padding: 0;
+}
+.modal .modal-heading {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  padding: 20px 26px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.modal .modal-heading h2 { min-width: 0; overflow-wrap: anywhere; }
+.modal .modal-heading .icon-button { flex-shrink: 0; min-width: 44px; min-height: 44px; }
+.modal-body { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 24px 26px; scrollbar-gutter: stable; }
+.modal-body > :first-child { margin-top: 0; }
+
+.control-center :is(.member-main, .admin-main) > *,
+.control-center :is(.profile-grid, .settings-grid, .detail-grid, .form-layout) > * { min-width: 0; }
+.control-center :is(.page-heading, .account-page-heading) h1 { overflow-wrap: anywhere; text-wrap: balance; }
+.control-center :is(.page-heading, .account-page-heading) p { line-height: 1.65; }
+.control-center :is(.profile-identity, .trust-section-title, .notification-row) > div { min-width: 0; }
+.control-center :is(.notification-row, .profile-identity, .trust-section-title, .business-card) :is(p, h2, h3) { overflow-wrap: anywhere; }
+
+@media (max-width: 700px) {
+  .control-center .admin-topbar { flex-wrap: wrap; height: auto; padding-block: 10px; gap: 10px; }
+  .control-center .admin-topbar .admin-select { max-width: calc(100% - 46px); min-width: 0; }
+  .control-center .admin-topbar .admin-select select { max-width: min(170px, 40vw); font-size: 11px; }
+  .control-center .admin-topbar .period-select { margin-right: auto; }
+  .control-center .admin-topbar .period-select select { max-width: 105px; }
+  .control-center .member-campus { max-width: calc(100% - 155px); font-size: 11px; }
+  .control-center .member-main .page-heading h1,
+  .control-center .admin-main .page-heading h1 { font-size: clamp(27px, 7vw, 36px); letter-spacing: -1px; }
+  .control-center :is(.button, .text-button, .text-link) { max-width: 100%; }
+  .control-center :is(.button-row, .row-between) { flex-wrap: wrap; gap: 12px; }
+  .control-center :is(.fineprint, .record-title small, .seller-line, .listing-meta) { font-size: 11px; line-height: 1.6; }
+  .control-center .admin-nav-link { min-height: 44px; }
+  .control-center .admin-user { padding-left: 8px; }
+  .control-center .member-message-link { display: none; }
+  .modal { width: calc(100% - 20px); max-height: 94dvh; }
+  .modal .modal-content { max-height: calc(94dvh - 2px); }
+  .modal .modal-heading { padding: 13px 16px; gap: 10px; }
+  .modal .modal-heading h2 { font-size: 21px; }
+  .modal-body { padding: 18px 16px; }
+}
+
+@media (max-width: 400px) {
+  .control-center .member-main, .control-center .admin-main { padding-inline: 14px; }
+  .control-center .admin-topbar { padding-inline: 14px; gap: 8px; }
+  .control-center .admin-user { border: 0; padding-left: 0; margin-left: 0; }
+  .control-center .member-campus { max-width: calc(100% - 150px); }
+  .control-center :is(input, select, textarea) { font-size: 16px; }
+}
