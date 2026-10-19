@@ -21,7 +21,7 @@ export function Messages({ selectedId }: { selectedId?: string }) {
   const order = matchingOrders.find(activeOrder) ?? matchingOrders[0];
   const messages = data.messages.filter(m => m.conversation_id === selected).sort((a, b) => a.created_at.localeCompare(b.created_at));
   const draft = selected ? drafts[selected] ?? '' : '';
-  useEffect(() => { bottom.current?.scrollIntoView({ block: 'nearest' }); }, [messages.length, selected]);
+  useEffect(() => { bottom.current?.scrollIntoView({ block: 'nearest' }); }, [messages.length, selected, mobileChatOpen]);
   const conversations = [...data.conversations].sort((a, b) => {
     const latest = (id: string, created: string) => data.messages.filter(m => m.conversation_id === id).reduce((time, m) => m.created_at > time ? m.created_at : time, created);
     return latest(b.id, b.created_at).localeCompare(latest(a.id, a.created_at));
