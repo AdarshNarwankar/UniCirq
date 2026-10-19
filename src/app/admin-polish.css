@@ -217,6 +217,66 @@ html[data-theme=dark] .control-center .admin-support-help-search:focus-within {
   min-height: 0;
 }
 
+/* Override the original white KPI cards with complete theme-aware surfaces. */
+.control-center .admin-analytics-kpis > .analytics-kpi {
+  align-items: flex-start;
+  gap: 14px;
+  min-height: 148px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+}
+.control-center .analytics-kpi > .metric-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--pale);
+  color: var(--blue);
+}
+.control-center .analytics-kpi > div { flex: 1; }
+.control-center .analytics-kpi > div > span,
+.control-center .analytics-kpi small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+.control-center .analytics-kpi strong {
+  margin: 8px 0;
+  color: var(--ink);
+  font-size: clamp(26px, 2.4vw, 34px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.control-center .analytics-header-action {
+  min-height: 44px;
+  padding: 10px 15px;
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.control-center .admin-analytics-header .analytics-eyebrow { color: var(--blue); }
+.control-center .analytics-header-action:hover {
+  background: var(--surface-soft);
+  border-color: var(--muted);
+}
+.control-center .analytics-scope {
+  margin-top: 12px;
+  padding: 8px 11px;
+  gap: 7px;
+  background: var(--surface-soft);
+  border-color: var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.control-center .analytics-scope > svg { flex-shrink: 0; color: var(--blue); }
+.control-center .analytics-scope > span:first-of-type { color: var(--ink); font-weight: 600; }
+
 @media (max-width: 1000px) {
   .control-center .admin-analytics-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -224,6 +284,10 @@ html[data-theme=dark] .control-center .admin-support-help-search:focus-within {
 }
 
 @media (max-width: 700px) {
+  .control-center .admin-analytics-kpis > .analytics-kpi { min-height: 0; padding: 16px; gap: 12px; }
+  .control-center .analytics-kpi strong { font-size: clamp(24px, 6vw, 30px); }
+  .control-center .analytics-kpi > .metric-icon { width: 35px; height: 35px; }
+  .control-center .analytics-scope { font-size: 11px; }
   .control-center .admin-panel-grid {
     grid-auto-rows: auto;
   }
