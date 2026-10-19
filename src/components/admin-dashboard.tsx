@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Bell, Box, CalendarDays, ChartNoAxesCombined, Check, ChevronRight, CircleHelp, ClipboardCheck, Clock3, FileClock, Flag, LayoutDashboard, LifeBuoy, LockKeyhole, LogOut, MapPin, Menu, MessageSquare, Search, Settings, ShieldCheck, ShoppingBag, Store, TriangleAlert, Users, Wallet, X, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Bell, Box, CalendarDays, ChartNoAxesCombined, Check, ChevronDown, ChevronRight, CircleHelp, ClipboardCheck, Clock3, FileClock, Flag, LayoutDashboard, LifeBuoy, LockKeyhole, LogOut, MapPin, Menu, MessageSquare, Search, Settings, ShieldCheck, ShoppingBag, Store, TriangleAlert, Users, Wallet, X, type LucideIcon } from 'lucide-react';
 import { useApp } from './provider';
 import { Modal } from './primitives';
 import { VerificationReview } from './verification-review';
@@ -58,7 +58,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     </aside>
     <div className="admin-workspace"><header className="admin-topbar">
       <button className="admin-menu" aria-label="Open navigation" aria-controls="admin-navigation" aria-expanded={open} onClick={() => setOpen(true)}><Menu size={21} /></button>
-      {adminRecordPages.includes(pathname) && <><label className="admin-select"><MapPin size={16} /><select aria-label="Dashboard campus" value={campus} onChange={e => { setCampus(e.target.value); }}><option value="all">All campuses</option>{data.colleges.map(c => <option key={c.id} value={c.id}>{c.short_name}</option>)}</select></label>
+      {adminRecordPages.includes(pathname) && <><label className="admin-select campus-picker"><MapPin size={17} aria-hidden="true" /><select aria-label="Dashboard campus" value={campus} onChange={e => { setCampus(e.target.value); }}><option value="all">All campuses</option>{data.colleges.map(c => <option key={c.id} value={c.id}>{c.short_name}</option>)}</select><ChevronDown className="campus-picker-chevron" size={15} aria-hidden="true" /></label>
       <label className="admin-select period-select"><CalendarDays size={16} /><select aria-label="Dashboard period" value={days} onChange={e => { setDays(e.target.value); }}><option value="all">All time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select></label></>}
       <ThemeToggle />
       <Link className="admin-bell" href="/admin/notifications" aria-label={`Notifications, ${unread} unread`}><Bell size={21} />{unread > 0 && <b>{unread}</b>}</Link>
