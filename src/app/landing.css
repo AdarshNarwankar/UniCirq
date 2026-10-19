@@ -167,3 +167,88 @@
 }
 
 .uc-hero h1 { word-spacing: .075em; }
+
+/* Keep the story readable and its controls reachable at narrow widths. */
+.uc-landing :is(.uc-hero-copy, .uc-hero-art, .uc-chapters, .uc-how-heading, .uc-how-steps, .uc-trust-copy, .uc-faq > div) { min-width: 0; }
+.uc-landing :is(p, small, .uc-hero-caption, .uc-chapter-tags, .uc-trust-copy li) { font-weight: 500; }
+.uc-landing :is(h1, h2, h3, p, summary) { overflow-wrap: break-word; }
+.uc-landing :is(.uc-button, .uc-text-link, .uc-trust-copy li) > svg { flex-shrink: 0; }
+.uc-nav-mobile-entry { display: none; }
+.uc-intro-index > a > div { min-width: 0; }
+.uc-faq summary { min-height: 60px; line-height: 1.5; }
+.uc-faq details[open] > p { animation: uc-faq-answer-in 240ms ease-out both; }
+@keyframes uc-faq-answer-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* Native details stays keyboard accessible; supporting browsers also ease its height. */
+@supports (interpolate-size: allow-keywords) {
+  .uc-faq details { interpolate-size: allow-keywords; }
+  .uc-faq details::details-content {
+    block-size: 0;
+    overflow: clip;
+    transition: block-size 240ms ease, content-visibility 240ms allow-discrete;
+  }
+  .uc-faq details[open]::details-content { block-size: auto; }
+}
+@media (max-width: 1000px) {
+  .uc-nav { gap: 18px; }
+  .uc-nav-links {
+    display: none;
+    position: absolute;
+    top: calc(100% - 8px);
+    inset-inline: 0;
+    background: var(--uc-paper);
+    border: 1px solid var(--uc-line);
+    border-radius: 8px;
+    padding: 12px 20px;
+    box-shadow: 0 12px 20px #2528240a;
+  }
+  .uc-nav-links.is-open { display: flex; flex-direction: column; align-items: stretch; gap: 0; }
+  .uc-nav-links a { display: flex; align-items: center; min-height: 44px; }
+  .uc-nav-links .uc-nav-mobile-entry { border-top: 1px solid var(--uc-line); margin-top: 6px; padding-top: 6px; }
+  .uc-nav-actions { gap: 14px; }
+  .uc-signin { display: none; }
+  .uc-menu-button { display: grid; place-items: center; width: 44px; height: 44px; padding: 10px; border: 0; background: none; color: inherit; }
+}
+@media (max-width: 680px) and (min-width: 541px) {
+  .uc-story-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 5%; }
+  .uc-chapter { min-height: 520px; }
+  .uc-chapter h3 { font-size: 27px; }
+  .uc-how, .uc-trust, .uc-faq { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .uc-how-heading > p { max-width: none; }
+  .uc-trust-visual { width: min(100%, 360px); justify-self: center; }
+  .uc-trust-copy > h2 br:last-child { display: none; }
+  .uc-business-band { grid-template-columns: minmax(0, 1fr); }
+  .uc-business-band > div { justify-self: start; }
+}
+@media (max-width: 540px) {
+  .uc-nav { gap: 12px; }
+  .uc-nav-actions { gap: 6px; }
+  .uc-hero-bottom { position: static; margin-top: 32px; padding-top: 16px; gap: 18px; grid-column: 1 / -1; }
+  .uc-hero-bottom > span { max-width: 160px; font-size: 8px; letter-spacing: .8px; }
+  .uc-hero-bottom > a { font-size: 8px; letter-spacing: .8px; gap: 8px; flex-shrink: 0; }
+  .uc-hero { padding-bottom: 28px; }
+  .uc-hero-actions { align-items: flex-start; }
+  .uc-trust-copy li { align-items: flex-start; line-height: 1.6; }
+  .uc-trust-copy li svg { margin-top: 1px; }
+  .uc-faq summary { gap: 16px; padding-block: 22px; }
+  .uc-final h2 { font-size: clamp(44px, 12vw, 62px); }
+  .uc-final h2 > svg { width: clamp(32px, 9vw, 48px); }
+  .uc-footer > div { flex-wrap: wrap; gap: 16px 24px; }
+}
+@media (max-width: 380px) {
+  .uc-nav .uc-button-small { display: none; }
+  .uc-hero h1 { font-size: clamp(39px, 12vw, 48px); }
+  .uc-hero-copy > .uc-overline { font-size: 7px; letter-spacing: .65px; }
+  .uc-campus-card { left: 9%; width: 77%; min-height: 300px; }
+  .uc-campus-card > strong { font-size: 24px; }
+  .uc-trust-visual { min-height: 345px; }
+  .uc-mobile-scene .uc-pin-note { padding: 23px 18px; gap: 16px; }
+  .uc-mobile-scene .uc-pin-note strong { font-size: 24px; }
+  .uc-mobile-scene .uc-skill-note { padding: 14px; font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .uc-faq details[open] > p { animation: none; }
+  .uc-faq details::details-content { transition: none; }
+}
