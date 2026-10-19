@@ -1,0 +1,318 @@
+/* Keep overview cards aligned while longer queues and charts scroll within them. */
+.control-center .admin-panel-grid {
+  align-items: stretch;
+  grid-auto-rows: 480px;
+}
+
+.control-center .admin-panel-grid > .control-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.control-center .control-panel > header {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.control-center .control-panel > header > svg,
+.control-center .control-panel .count-dot {
+  flex-shrink: 0;
+}
+
+.control-center .control-panel h2 {
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+
+.control-center .control-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 48%, transparent) transparent;
+  padding-right: 5px;
+  overscroll-behavior-y: contain;
+}
+
+.control-center .admin-sidebar-help {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.control-center .admin-sidebar-help .help-orbit {
+  position: static;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.control-center .admin-sidebar-help strong {
+  display: block;
+  font-size: 16px;
+  line-height: 1.4;
+  overflow-wrap: normal;
+}
+
+.control-center .admin-sidebar-help p {
+  margin: 0;
+}
+
+.control-center .admin-sidebar-help a {
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.5;
+}
+
+/* The focus treatment belongs to the full search field, including its icon. */
+.control-center :is(.verification-workspace-filters, .admin-support-filters) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(170px, 220px);
+  align-items: stretch;
+  gap: 12px;
+  min-width: 0;
+}
+
+.control-center :is(.verification-workspace-filters, .admin-support-filters) > label,
+.control-center .admin-support-help-search {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 48px;
+  width: 100%;
+  padding: 0 13px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--muted);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.control-center :is(.verification-workspace-filters, .admin-support-filters) > label:focus-within,
+.control-center .admin-support-help-search:focus-within {
+  border-color: #294d91;
+  box-shadow: 0 0 0 2px #294d9133;
+}
+
+.control-center :is(.verification-workspace-filters, .admin-support-filters) > label > input,
+.control-center .admin-support-help-search > input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 11px 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.control-center :is(.verification-workspace-filters, .admin-support-filters) > select {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  margin: 0;
+}
+
+.control-center :is(.verification-workspace-filters, .admin-support-filters) label > svg,
+.control-center .admin-support-help-search > svg {
+  pointer-events: none;
+}
+
+.control-center .verification-workspace-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 22px;
+  row-gap: 0;
+}
+
+.control-center .verification-workspace-tabs > button {
+  min-height: 46px;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.control-center .verification-workspace-tabs > button[aria-pressed=true],
+html[data-theme=dark] .control-center .verification-workspace-tabs > button[aria-pressed=true] {
+  border: 0;
+  border-bottom: 2px solid var(--blue);
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--blue);
+}
+
+.control-center .verification-workspace-tabs > button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 4px;
+}
+
+/* Chart labels and count cards follow the current theme's readable ink. */
+html[data-theme=dark] .control-center :is(.analytics-kpi, .chart-totals, .verification-workspace-metrics, .admin-support-metrics) strong {
+  color: var(--ink);
+}
+
+html[data-theme=dark] .control-center .admin-chart-bar-value {
+  fill: var(--ink);
+  font-weight: 600;
+}
+
+html[data-theme=dark] .control-center :is(.admin-chart-axis, .admin-chart-category) {
+  fill: #bac5cd;
+  font-weight: 500;
+}
+
+html[data-theme=dark] .control-center .admin-chart-target > rect[fill="#f2f5fe"] {
+  fill: var(--surface-soft);
+}
+
+html[data-theme=dark] .control-center :is(.verification-workspace-filters, .admin-support-filters) > label:focus-within,
+html[data-theme=dark] .control-center .admin-support-help-search:focus-within {
+  border-color: #9aafff;
+  box-shadow: 0 0 0 2px #9aafff33;
+}
+
+.control-center :is(.verification-workspace, .admin-support-workspace, .admin-analytics-page),
+.control-center :is(.verification-workspace-toolbar, .admin-support-toolbar, .admin-support-record-context) {
+  min-width: 0;
+}
+
+.control-center :is(.verification-workspace-heading, .admin-support-heading, .admin-analytics-header) h1 {
+  overflow-wrap: anywhere;
+  font-size: clamp(25px, 2.8vw, 36px);
+  line-height: 1.3;
+}
+
+.control-center :is(.verification-workspace-record, .admin-support-record, .admin-support-card) :is(p, time, dd) {
+  overflow-wrap: anywhere;
+}
+
+.control-center .admin-analytics-grid {
+  align-items: stretch;
+}
+
+.control-center .admin-analytics-card {
+  min-height: 0;
+}
+
+@media (max-width: 1000px) {
+  .control-center .admin-analytics-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .control-center .admin-panel-grid {
+    grid-auto-rows: auto;
+  }
+
+  .control-center .admin-panel-grid > .control-panel {
+    height: auto;
+  }
+
+  .control-center .control-panel-body {
+    overflow: visible;
+    scrollbar-gutter: auto;
+    padding-right: 0;
+  }
+
+  .control-center :is(.verification-workspace-filters, .admin-support-filters) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .control-center .verification-workspace-tabs {
+    column-gap: 17px;
+  }
+
+  .control-center .verification-workspace-tabs > button {
+    font-size: 12px;
+  }
+
+  .control-center :is(.admin-support-heading, .admin-analytics-header) {
+    flex-wrap: wrap;
+  }
+
+  .control-center :is(.admin-support-metrics, .verification-workspace-metrics) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .control-center .chart-totals {
+    gap: 8px;
+  }
+
+  .control-center .chart-totals strong {
+    font-size: clamp(20px, 6vw, 26px);
+  }
+
+  .control-center .incident-record {
+    flex-wrap: wrap;
+  }
+
+  .control-center .incident-record strong {
+    flex-basis: calc(100% - 75px);
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 420px) {
+  .control-center .control-panel > header {
+    flex-wrap: wrap;
+    row-gap: 9px;
+  }
+
+  .control-center .control-panel > header > div {
+    flex-basis: calc(100% - 40px);
+  }
+
+  .control-center .control-panel > header > a {
+    margin-left: 33px;
+    min-height: 30px;
+    font-size: 11px;
+  }
+
+  .control-center .listing-review-row {
+    flex-wrap: wrap;
+  }
+
+  .control-center .listing-review-row .record-title {
+    flex-basis: calc(100% - 50px);
+  }
+
+  .control-center .listing-review-row :is(.record-title strong, .record-title small) {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .control-center .verification-record {
+    flex-wrap: wrap;
+  }
+
+  .control-center .verification-record .admin-mini-button {
+    margin-left: auto;
+    min-height: 36px;
+  }
+}

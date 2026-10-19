@@ -53,7 +53,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <nav aria-label="Admin navigation"><Link onClick={() => setOpen(false)} href="/admin" className={`admin-nav-link ${pathname === '/admin' ? 'selected' : ''}`} aria-current={pathname === '/admin' ? 'page' : undefined}><LayoutDashboard size={18} />{data.user.role === 'student' ? 'Your campus' : 'Overview'}</Link>
         {sections.map(section => <div className="admin-nav-group" key={section.title}><span>{section.title}</span>{section.links.map(({ href, label, icon: Icon }) => <Link key={label} href={href} onClick={() => setOpen(false)} className={`admin-nav-link ${pathname === href ? 'selected' : ''}`} aria-current={pathname === href ? 'page' : undefined}><Icon size={17} />{label}{label === 'Moderation queue' && pending > 0 && <b>{pending}</b>}{label === 'Notifications' && unread > 0 && <b>{unread}</b>}</Link>)}</div>)}
       </nav>
-      <div className="admin-sidebar-help"><span className="help-orbit"><ShieldCheck size={27} /></span><strong>A safer campus circle.</strong><p>Review with care. Keep your community connected.</p><Link href={adminPaths.help} onClick={() => setOpen(false)}>Open support center <ArrowRight size={13} /></Link></div>
+      <div className="admin-sidebar-help"><span className="help-orbit"><ShieldCheck size={27} /></span><strong>Safer campus</strong><p>Review with care. Keep your community connected.</p><Link href={adminPaths.help} onClick={() => setOpen(false)}>Open support center <ArrowRight size={13} /></Link></div>
       <button className="admin-signout" onClick={async () => { try { const response = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) }); if (!response.ok) throw new Error(); window.location.assign('/login'); } catch { toast('Unable to sign out. Please try again.'); } }}><LogOut size={15} />Sign out</button>
     </aside>
     <div className="admin-workspace"><header className="admin-topbar">
@@ -70,7 +70,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 }
 
 function Panel({ title, subtitle, icon: Icon, count, href, id, children, className = '' }: { title: string; subtitle: string; icon: LucideIcon; count?: number; href?: string; id?: string; children: React.ReactNode; className?: string }) {
-  return <section id={id} className={`control-panel ${className}`}><header><Icon size={21} /><div><h2>{title}{count !== undefined && <span className="count-dot">{count}</span>}</h2><p>{subtitle}</p></div>{href && <Link href={href}>View all <ArrowRight size={12} /></Link>}</header>{children}</section>;
+  return <section id={id} className={`control-panel ${className}`}><header><Icon size={21} /><div><h2>{title}{count !== undefined && <span className="count-dot">{count}</span>}</h2><p>{subtitle}</p></div>{href && <Link href={href}>View all <ArrowRight size={12} /></Link>}</header><div className="control-panel-body" role="region" aria-label={`${title} contents`}>{children}</div></section>;
 }
 function Quiet({ children }: { children: React.ReactNode }) { return <div className="admin-quiet"><Check size={20} /><p>{children}</p></div>; }
 function age(date: string) { const hours = Math.max(0, Math.floor((Date.now() - Date.parse(date)) / 3600000)); return hours < 1 ? 'Just now' : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`; }
