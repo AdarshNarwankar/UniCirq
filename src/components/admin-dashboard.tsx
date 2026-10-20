@@ -48,7 +48,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     <a className="skip-link" href="#main-content">Skip to content</a>
     {open && <button className="admin-scrim" aria-label="Close navigation" onClick={() => setOpen(false)} />}
     <aside id="admin-navigation" className={`admin-sidebar ${open ? 'is-open' : ''}`} aria-label="Admin sidebar">
-      <Link href="/admin" className="admin-brand" onClick={() => setOpen(false)}><span className="uc-mark" aria-hidden="true"><i /><i /></span><span>unicirq.<small>CAMPUS OPERATIONS</small></span></Link>
+      <Link href="/admin" className="admin-brand" onClick={() => setOpen(false)}><span className="uc-mark" aria-hidden="true"><i /><i /></span><span>UniCirq<small>CAMPUS OPERATIONS</small></span></Link>
       <button className="admin-close" aria-label="Close navigation" onClick={() => setOpen(false)}><X size={20} /></button>
       <nav aria-label="Admin navigation"><Link onClick={() => setOpen(false)} href="/admin" className={`admin-nav-link ${pathname === '/admin' ? 'selected' : ''}`} aria-current={pathname === '/admin' ? 'page' : undefined}><LayoutDashboard size={18} />{data.user.role === 'student' ? 'Your campus' : 'Overview'}</Link>
         {sections.map(section => <div className="admin-nav-group" key={section.title}><span>{section.title}</span>{section.links.map(({ href, label, icon: Icon }) => <Link key={label} href={href} onClick={() => setOpen(false)} className={`admin-nav-link ${pathname === href ? 'selected' : ''}`} aria-current={pathname === href ? 'page' : undefined}><Icon size={17} />{label}{label === 'Moderation queue' && pending > 0 && <b>{pending}</b>}{label === 'Notifications' && unread > 0 && <b>{unread}</b>}</Link>)}</div>)}
