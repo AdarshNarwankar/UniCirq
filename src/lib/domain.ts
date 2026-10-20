@@ -9,8 +9,8 @@ export interface Listing { id:string; owner_id:string; college_id:string; title:
 export interface StudentRequest { id:string; owner_id:string; college_id:string; title:string; description:string; category:string; budget:number; status:'open'|'fulfilled'; created_at:string }
 export interface Conversation { id:string; member_a:string; member_b:string; listing_id:string|null; request_id:string|null; created_at:string }
 export interface Message { id:string; conversation_id:string; sender_id:string; body:string; created_at:string }
-export interface OrderTerms { title:string; description:string; unit:string; price:number; condition:string; location:string; payment_mode:'direct'; protected:false }
-export interface Order { id:string; listing_id:string; buyer_id:string; seller_id:string; college_id:string; status:OrderStatus; amount:number; kind:Kind; starts_on:string|null; ends_on:string|null; terms_snapshot:OrderTerms; created_at:string }
+export interface OrderTerms { title:string; description:string; unit:string; price:number; condition:string; location:string; payment_mode:'direct'; protected:false; billing_units?:number }
+export interface Order { id:string; listing_id:string; buyer_id:string; seller_id:string; college_id:string; status:OrderStatus; amount:number; kind:Kind; starts_on:string|null; ends_on:string|null; starts_at?:string|null; ends_at?:string|null; terms_snapshot:OrderTerms; created_at:string }
 export interface OrderEvent { id:string; order_id:string; actor_id:string; status:OrderStatus; created_at:string }
 export interface SavedItem { user_id:string; listing_id:string }
 export interface Ticket { id:string; owner_id:string; college_id:string|null; order_id:string|null; listing_id:string|null; subject:string; body:string; type:'support'|'dispute'|'report'|'managed_sale'; status:'open'|'resolved'; resolution:string; created_at:string }
@@ -27,9 +27,10 @@ const short = z.string().trim().min(3).max(100);
 const detail = z.string().trim().min(10).max(2000);
 const money = z.number().int().min(0).max(100000000);
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>!Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0,10)===v, 'Use a valid date');
+const timestamp = z.iso.datetime({ offset: true });
 export const commandSchema = z.discriminatedUnion('type',[
  z.object({type:z.literal('choose_university'),college_id:id,name:z.string().trim().min(2).max(60),course:z.string().trim().max(80).optional(),year:z.string().trim().max(20).optional()}),
- z.object({type:z.literal('create_listing'),title:short,description:detail,kind:z.enum(['sale','rental','hardware','service']),category:short,price:money,unit:z.enum(['item','day','hour','session','project']),condition:z.enum(['Like new','Good','Fair','New','Service']),location:short}).refine(v=>v.kind==='rental'?v.unit==='day':v.kind==='service'?['hour','session','project'].includes(v.unit):v.unit==='item','Choose a valid pricing unit'),
+ z.object({type:z.literal('create_listing'),title:short,description:detail,kind:z.enum(['sale','rental','hardware','service']),category:short,price:money,unit:z.enum(['item','day','hour','week','month','session','project']),condition:z.enum(['Like new','Good','Fair','New','Service']),location:short}).refine(v=>v.kind==='rental'?['hour','day','week','month'].includes(v.unit):v.kind==='service'?['hour','session','project'].includes(v.unit):v.unit==='item','Choose a valid pricing unit'),
  z.object({type:z.literal('save_listing'),listing_id:id}),
  z.object({type:z.literal('close_listing'),listing_id:id}),
  z.object({type:z.literal('create_request'),title:short,description:detail,category:short,budget:money}),
@@ -37,7 +38,7 @@ export const commandSchema = z.discriminatedUnion('type',[
  z.object({type:z.literal('start_conversation'),listing_id:id.optional(),request_id:id.optional()}).refine(v=>Boolean(v.listing_id)!==Boolean(v.request_id),'Choose one conversation context'),
  z.object({type:z.literal('start_order_conversation'),order_id:id}),
  z.object({type:z.literal('send_message'),conversation_id:id,body:z.string().trim().min(1).max(2000)}),
- z.object({type:z.literal('create_order'),listing_id:id,starts_on:date.optional(),ends_on:date.optional()}),
+ z.object({type:z.literal('create_order'),listing_id:id,starts_on:date.optional(),ends_on:date.optional(),starts_at:timestamp.optional(),ends_at:timestamp.optional()}),
  z.object({type:z.literal('transition_order'),order_id:id,status:z.enum(['accepted','handed_over','completed','cancelled'])}),
  z.object({type:z.literal('create_ticket'),subject:short,body:detail,kind:z.enum(['support','dispute','report','managed_sale']),order_id:id.optional(),listing_id:id.optional()}),
  z.object({type:z.literal('update_profile'),name:z.string().trim().min(2).max(60),bio:z.string().trim().max(500),course:z.string().trim().max(80),year:z.string().max(20)}),
