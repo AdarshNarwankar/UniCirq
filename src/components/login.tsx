@@ -50,9 +50,9 @@ export function Login({demo,capabilities,mode='login',oauthError=false,serviceEr
  {codeStep?<div className="account-code-actions"><button className="text-button" type="button" disabled={busy||cooldown>0||!available} onClick={resend}>{cooldown>0?`Resend in ${cooldown}s`:'Resend code'}</button><button className="text-button" type="button" disabled={busy} onClick={()=>{setStep('details');setOtp('');setPassword('');setError('');setNotice('');setRecover(false);}}>Use another email</button></div>:null}
  </form>
  {mode==='login'&&step==='details'?<button className="account-switch" type="button" disabled={busy} onClick={()=>{setUseCode(value=>!value);setPassword('');setError('');setRecover(false);}}><Mail size={16}/>{useCode?'Sign in with your password':'Sign in with an email code'}</button>:null}
- {mode==='signup'?<p className="account-trust"><ShieldCheck size={15}/>Verify your email first. Choose your university next.</p>:null}
+ {mode!=='forgot'&&step==='details'?<p className="account-trust"><ShieldCheck size={15}/><span>Confirm your @dypiu.ac.in inbox for automatic DYPIU campus verification. Personal email accounts can request a campus review.</span></p>:null}
  <p className="account-other">{mode==='signup'?<>Already part of the circle? <Link href="/login" onClick={()=>setPassword('')}>Sign in</Link></>:mode==='forgot'?<Link href="/login"><ArrowLeft size={14}/> Back to sign in</Link>:<>New around here? <Link href="/signup" onClick={()=>setPassword('')}>Create an account</Link></>}</p>
  </>}
  {demo&&mode!=='forgot'?<details className="account-demo"><summary>Explore a sample campus <span>DEMO</span></summary><p>Fictional people and universities. Preview changes may reset.</p><div className="account-demo-grid">{[['student','Student'],['seller','Seller'],['business','Business'],['admin','Admin'],['unverified','New student']].map(([account,label])=><button key={account} type="button" className="button secondary" disabled={busy} onClick={()=>preview(account)}>{label}</button>)}</div></details>:null}
- <div className="account-secure"><Check size={14}/> Your email verification and campus verification are separate.</div></AuthShell>;
+ <div className="account-secure"><Check size={14}/> Campus access is based on a verified university email or an eligibility review.</div></AuthShell>;
 }

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, Bell, Clock3, Cpu, GraduationCap, Heart, HeartHandshake, LayoutDashboard, LifeBuoy, LogOut, MapPin, Megaphone, Menu, MessageCircle, Plus, ReceiptText, Settings, ShieldCheck, ShoppingBag, Store, Tag, UserRound, X, type LucideIcon } from 'lucide-react';
 import { useApp } from './provider';
 import { ThemeToggle } from './theme';
+import { studentVerificationLabel } from '@/lib/campus-verification';
 
 type NavGroup = { title: string; links: { path: string; label: string; icon: LucideIcon; badge?: number }[] };
 
@@ -60,7 +61,7 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
       <ThemeToggle />
       {student && <Link className="admin-bell member-message-link" href="/student/messages" aria-label="Messages"><MessageCircle size={20} /></Link>}
       <Link className="admin-bell" href={`${base}/notifications`} aria-label={`Notifications, ${unread} unread`}><Bell size={20} />{unread > 0 && <b>{unread}</b>}</Link>
-      <Link className="admin-user" href={`${base}/profile`} aria-label="Your profile"><span className="avatar">{data.user.avatar}</span><span><strong>{data.user.name}</strong><small>{data.user.verified ? student ? 'Verified student' : 'Verified business' : 'Verification pending'}</small></span></Link>
+      <Link className="admin-user" href={`${base}/profile`} aria-label="Your profile"><span className="avatar">{data.user.avatar}</span><span><strong>{data.user.name}</strong><small>{data.user.verified ? student ? studentVerificationLabel(data.user, campus, 'Verified student') : 'Verified business' : 'Verification pending'}</small></span></Link>
       {!student && <Link href="/business/deals" className="member-header-action" aria-label="Manage deals"><Plus size={16} /><span>Manage deals</span></Link>}
     </header>
     {data.demo && <div className="admin-demo"><span><i />LOCAL DEMO <span>· Sample campus data</span></span><Link href="/login?preview=1">Switch account <ArrowRight size={12} /></Link></div>}

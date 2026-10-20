@@ -30,7 +30,7 @@ See [implementation plan, structure, data model and workflow](docs/IMPLEMENTATIO
 
 See [PostgreSQL + Prisma setup and live readiness checks](docs/PRODUCTION-SETUP.md). Prisma manages authentication tables; the marketplace retains its SQL transactions and row policies. SQL migrations remain authoritative. Do not use Prisma db push/migrate against this auth-only schema.
 
-See [login, signup, Google and university onboarding](docs/AUTHENTICATION.md). New students choose a supported university after signing in; email verification and campus verification remain separate.
+See [login, signup, Google and university onboarding](docs/AUTHENTICATION.md). Proven `@dypiu.ac.in` mailboxes can connect to DYPIU automatically; other students choose their university and request campus verification.
 
 ## Database setup
 
@@ -73,7 +73,7 @@ All variables below are server-only:
 
 Never prefix secrets with `NEXT_PUBLIC_`, commit them, or log them. `.env.local` is ignored. Local database mode uses `APP_URL=http://127.0.0.1:3000`. Restart after changing environment variables.
 
-Email OTP verifies email access only; campus membership requires separate admin review. Codes expire after five minutes, are stored hashed and have limited attempts. Sessions and OTP rate limits persist in PostgreSQL.
+Verified DYPIU mailbox ownership can grant campus access with the badge “DYPIU email verified”; it does not establish current student enrolment. Other campuses and personal email accounts use an eligibility review. Codes expire after five minutes, are stored hashed and have limited attempts. Sessions and OTP rate limits persist in PostgreSQL.
 
 Gmail SMTP testing requires 2-Step Verification and an App Password. It uses verified TLS to `smtp.gmail.com:465`, restricts the sender to the configured Gmail account and preserves the existing signup/code/recovery flows. Gmail limits and account protections apply; switch to a verified transactional sending domain before public launch. See [authentication setup](docs/AUTHENTICATION.md).
 

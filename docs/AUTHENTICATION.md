@@ -10,11 +10,24 @@ UniCirq uses Better Auth with a Prisma PostgreSQL adapter and a restricted conne
 | `/login` | Password, email code or Google. Unverified password accounts must prove email ownership before entering the app. |
 | `/forgot-password` | Request a reset code, choose a new password, then sign in. Successful recovery revokes prior sessions. |
 | `/auth/complete` | Reads the real server session and profile, then routes to onboarding or the correct role dashboard. |
-| `/onboarding` | New students must choose a supported university and confirm their name. Course and year are optional. |
+| `/onboarding` | Students without a campus choose a supported university and confirm their name. A proven DYPIU university mailbox can connect to DYPIU automatically and skip this step. Course and year remain editable in Profile. |
 
-A university choice scopes discovery. It never grants a Student verification badge, Business role or Admin role. Campus verification is a separate reviewed application and must match the selected university. Initial choice is transactionally locked; a later change requires operator support. Business and Admin accounts keep their existing role routing.
+A university choice scopes discovery and grants no privileges by itself. Campus access requires a proven DYPIU mailbox or a reviewed application matching the selected university. Initial choice is transactionally locked; a later change requires operator support. Business and Admin accounts keep their existing role routing.
 
 The catalog comes from the curated `colleges` table. Insert real pilot colleges through the trusted operator process before accepting real signups. Demo universities are explicitly fictional. An empty catalog offers retry/finish-later states; it does not fabricate a university.
+
+## Automatic DYPIU email verification
+
+Migration `011_university_email_verification.sql` enables the exact `dypiu.ac.in` domain for the provisioned DYPIU campus. No extra provider credentials or environment variables are needed.
+
+- A consumed email OTP from sign-in, signup verification, or successful password recovery proves access to that mailbox. Merely entering an address, sending a code, or already having `emailVerified=true` does not provide this new proof.
+- Google sign-in must pass Better Auth's token/state checks and return authoritative `email_verified=true` and `hd=dypiu.ac.in` claims with a matching email. A Google account with the email suffix alone can still sign in normally but needs a fresh mailbox code for automatic campus verification. [Google's organization-account guidance](https://developers.google.com/identity/sign-in/web/backend-auth).
+- Successful proof is recorded in a private authentication column, absent from client input and public user/session output. A protected database trigger independently checks email ownership, the exact domain, the supported campus, account role, suspension and existing verification state.
+- Eligible Student profiles with no campus or the same DYPIU campus receive campus access, the source `university_email`, a verification timestamp, one notification and an audit event. Repeated logins do not duplicate these events. Existing verified profiles, other campus assignments, rejected campus reviews and Business/Admin accounts are preserved.
+- A pending DYPIU campus application can be completed automatically with a timestamp and email method, with no invented human reviewer. Business applications remain separate. No existing identities are bulk verified; eligible accounts obtain proof at their next university-email Google/code verification.
+- The profile and account badge reads **DYPIU email verified**. It confirms access to a university mailbox and does not claim current student enrolment. Personal email accounts retain manual campus review.
+
+The Google claims and email-code boundaries are exercised with the actual Prisma adapter against disposable PostgreSQL test data. These tests use captured codes and locally signed provider fixtures; they do not send messages to real university addresses.
 
 ## Add credentials later
 

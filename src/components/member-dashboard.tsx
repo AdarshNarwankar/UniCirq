@@ -9,6 +9,7 @@ import { Empty } from './primitives';
 import { moneyLabel } from '@/lib/domain';
 import { buyListings } from '@/lib/student-marketplace';
 import { NotificationLink } from './notification-link';
+import { hasUniversityEmailVerification } from '@/lib/campus-verification';
 
 const quick = [['buy', 'Buy', 'Items from students', ShoppingBag], ['rentals', 'Just for a while', 'Rentals', Clock3], ['hardware', 'Build something', 'Project hardware', Cpu], ['services', 'Find your person', 'Skills & tutors', GraduationCap], ['requests', 'Ask the campus', 'Requests', Megaphone], ['deals', 'A little extra', 'Local offers', Tag]] as const;
 const formatDate = (value: string) => new Date(value.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -37,7 +38,7 @@ export function StudentDashboard() {
         <p>Good finds, useful skills, and people just around the corner.</p>
         <Form action="/student/buy" className="uc-campus-search" role="search"><Search size={20}/><input name="q" aria-label="Search items to buy" placeholder="Search items to buy…"/><button type="submit" aria-label="Search items to buy"><ArrowRight size={20}/></button></Form>
         <div className="uc-trading-actions"><Link href="/student/buy" className="button primary"><ShoppingBag size={17}/>Buy on campus<ArrowUpRight size={15}/></Link><Link href="/student/sell" className="button secondary"><Plus size={17}/>Sell an item<ArrowUpRight size={15}/></Link></div>
-        <Link className="uc-campus-membership" href="/student/profile"><ShieldCheck size={16}/>{data.user.verified ? 'You’re in the circle. Campus verified.' : 'Make it official. Verify your campus.'}<ArrowUpRight size={14}/></Link>
+        <Link className="uc-campus-membership" href="/student/profile"><ShieldCheck size={16}/>{data.user.verified ? hasUniversityEmailVerification(data.user, campus) ? 'DYPIU email verified. You’re in the circle.' : 'You’re in the circle. Campus verified.' : 'Make it official. Verify your campus.'}<ArrowUpRight size={14}/></Link>
       </div>
       <div className="uc-desk-feature">
         <span className="uc-desk-note">A new chapter<br /><em>looks good on you.</em><ArrowUpRight size={24}/></span>

@@ -50,6 +50,8 @@ const origin = 'http://127.0.0.1:3901';
 let code = '';
 let requestIp = '127.0.0.1';
 const collectedCodes = new Map<string, string>();
+const campusProofs: { userId: string; email: string; method: 'email_code' | 'google_workspace' }[] = [];
+const dypiuCollegeId = '7dceeee0-45f1-4ffb-b55a-8e7d8c449fdd';
 let cookie = '';
 const auth = defineAuth({
   database: prismaAdapter(prisma, { provider: 'postgresql', transaction: true }),
@@ -57,6 +59,14 @@ const auth = defineAuth({
   secret: 'test-only-prisma-auth-secret-with-at-least-thirty-two-characters',
   sendCode: async (email, otp, type = 'sign-in') => { code = otp; collectedCodes.set(email + ':' + type, otp); },
   google: { clientId: 'test-client.apps.googleusercontent.com', clientSecret: 'test-only-google-client-secret' },
+  async onUniversityEmailVerified(proof) {
+    campusProofs.push(proof);
+    const updated = await prisma.user.updateMany({
+      where: { id: proof.userId, email: { equals: proof.email, mode: 'insensitive' }, emailVerified: true },
+      data: { campusEmailProof: proof.email },
+    });
+    assert.equal(updated.count, 1);
+  },
 });
 
 async function request(path: string, data?: object, originHeader = origin) {
@@ -76,6 +86,8 @@ before(async () => {
   for (const file of (await readdir('database/migrations')).sort()) {
     await db.exec(await readFile('database/migrations/' + file, 'utf8'));
   }
+  await db.query(`INSERT INTO colleges(id,name,short_name,domain,city)
+    VALUES($1,'D.Y. Patil International University','DYPIU Akurdi','dypiu.ac.in','Pune')`, [dypiuCollegeId]);
   await db.exec(`
     CREATE ROLE prisma_test_runtime NOLOGIN;
     GRANT unicirq_app TO prisma_test_runtime;
@@ -244,6 +256,148 @@ function absorbCookies(response: Response) {
   cookie = [...jar].map(([name, value]) => name + '=' + value).join('; ');
 }
 
+async function campusProfile(userId: string) {
+  await db.exec('SET ROLE unicirq_app');
+  try {
+    await db.query("SELECT set_config('app.user_id', $1, false)", [userId]);
+    const result = await db.query<{
+      role: string; verified: boolean; college_id: string | null; campus_verification_source: string | null;
+    }>('SELECT role,verified,college_id,campus_verification_source FROM profiles WHERE id=$1', [userId]);
+    assert.equal(result.rows.length, 1);
+    return result.rows[0];
+  } finally {
+    await db.exec('RESET ROLE; SET ROLE prisma_test_runtime');
+  }
+}
+
+async function assertCampusEmailGrant(userId: string, email: string, method: 'email_code' | 'google_workspace') {
+  assert.deepEqual(await campusProfile(userId), {
+    role: 'student', verified: true, college_id: dypiuCollegeId, campus_verification_source: 'university_email',
+  });
+  assert.equal((await prisma.user.findUnique({ where: { id: userId } }))?.campusEmailProof, email);
+  assert.ok(campusProofs.some(proof => proof.userId === userId && proof.email === email && proof.method === method));
+}
+
+test('DYPIU campus verification requires successful mailbox proof and remains private', async (t) => {
+  cookie = ''; requestIp = '127.0.0.81';
+  const email = 'campus-code@dypiu.ac.in';
+  const callsBefore = campusProofs.length;
+  await t.test('sending or guessing a code cannot verify a claimed university address', async () => {
+    const sent = await request('/email-otp/send-verification-otp', { email, type: 'sign-in' });
+    assert.equal(sent.status, 200);
+    assert.equal(campusProofs.length, callsBefore);
+    const correct = collectedCodes.get(email + ':sign-in');
+    const denied = await request('/sign-in/email-otp', {
+      email, otp: correct === '000000' ? '999999' : '000000', role: 'admin', verified: true,
+      campusEmailProof: email, hd: 'dypiu.ac.in', email_verified: true,
+    });
+    assert.ok(denied.status >= 400);
+    assert.equal(campusProofs.length, callsBefore);
+    assert.equal(await prisma.user.count({ where: { email } }), 0);
+  });
+  await t.test('a fresh valid OTP selects DYPIU and grants only Student campus access', async () => {
+    const response = await request('/sign-in/email-otp', {
+      email: email.toUpperCase(), otp: collectedCodes.get(email + ':sign-in'), name: 'Campus Code Student',
+      role: 'admin', verified: true, campusEmailProof: 'attacker@dypiu.ac.in',
+    });
+    const body = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(body));
+    assert.equal('campusEmailProof' in body.user, false);
+    assert.equal(campusProofs.length, callsBefore + 1);
+    await assertCampusEmailGrant(body.user.id, email, 'email_code');
+    absorbCookies(response);
+    const session = await (await request('/get-session')).json();
+    assert.equal(session.user.id, body.user.id);
+    assert.equal('campusEmailProof' in session.user, false);
+    const replay = await request('/sign-in/email-otp', { email, otp: collectedCodes.get(email + ':sign-in') });
+    assert.ok(replay.status >= 400);
+    assert.equal(campusProofs.length, callsBefore + 1);
+    await request('/sign-out', {}); cookie = '';
+  });
+  await t.test('an existing email-verified identity is upgraded after a new valid mailbox code', async () => {
+    requestIp = '127.0.0.82';
+    const returningEmail = 'campus-returning@dypiu.ac.in';
+    const user = await prisma.user.create({ data: {
+      id: crypto.randomUUID(), name: 'Returning campus student', email: returningEmail, emailVerified: true,
+    } });
+    assert.equal((await campusProfile(user.id)).verified, false);
+    assert.equal((await request('/email-otp/send-verification-otp', { email: returningEmail, type: 'sign-in' })).status, 200);
+    const response = await request('/sign-in/email-otp', { email: returningEmail, otp: collectedCodes.get(returningEmail + ':sign-in') });
+    assert.equal(response.status, 200, await response.clone().text());
+    assert.equal((await response.json()).user.id, user.id);
+    await assertCampusEmailGrant(user.id, returningEmail, 'email_code');
+    absorbCookies(response); await request('/sign-out', {}); cookie = '';
+  });
+  await t.test('password signup cannot supply proof and verification still requires password ownership', async () => {
+    requestIp = '127.0.0.83';
+    const signupEmail = 'campus-password@dypiu.ac.in', password = 'Campus-password-test-123';
+    const signup = await request('/sign-up/email', {
+      email: signupEmail, name: 'Campus password student', password, emailVerified: true,
+      campusEmailProof: signupEmail, verified: true, role: 'admin',
+    });
+    const body = await signup.json();
+    assert.equal(signup.status, 200, JSON.stringify(body));
+    const identity = await prisma.user.findUnique({ where: { id: body.user.id } });
+    assert.equal(identity?.emailVerified, false);
+    assert.equal(identity?.campusEmailProof, null);
+    assert.equal((await campusProfile(body.user.id)).verified, false);
+    const calls = campusProofs.length;
+    const otp = collectedCodes.get(signupEmail + ':email-verification');
+    const denied = await request('/email-otp/verify-email', { email: signupEmail, otp });
+    assert.equal(denied.status, 401);
+    assert.equal(campusProofs.length, calls);
+    const verified = await request('/email-otp/verify-email', { email: signupEmail, otp, password });
+    assert.equal(verified.status, 200, await verified.clone().text());
+    assert.equal('campusEmailProof' in (await verified.json()).user, false);
+    await assertCampusEmailGrant(body.user.id, signupEmail, 'email_code');
+    absorbCookies(verified); await request('/sign-out', {}); cookie = '';
+  });
+  await t.test('a valid recovery code also proves the university mailbox without a standing session', async () => {
+    requestIp = '127.0.0.84';
+    const recoveryEmail = 'campus-recovery@dypiu.ac.in';
+    const user = await prisma.user.create({ data: {
+      id: crypto.randomUUID(), email: recoveryEmail, name: 'Campus recovery student', emailVerified: false,
+    } });
+    assert.equal((await request('/email-otp/request-password-reset', { email: recoveryEmail })).status, 200);
+    const otp = collectedCodes.get(recoveryEmail + ':forget-password');
+    const calls = campusProofs.length;
+    const invalid = await request('/email-otp/reset-password', {
+      email: recoveryEmail, otp: otp === '000000' ? '999999' : '000000', password: 'Campus-recovery-password-123',
+    });
+    assert.ok(invalid.status >= 400);
+    assert.equal(campusProofs.length, calls);
+    const response = await request('/email-otp/reset-password', {
+      email: recoveryEmail, otp, password: 'Campus-recovery-password-123',
+    });
+    assert.equal(response.status, 200, await response.clone().text());
+    await assertCampusEmailGrant(user.id, recoveryEmail, 'email_code');
+    assert.equal(await prisma.session.count({ where: { userId: user.id } }), 0);
+  });
+  await t.test('personal addresses, subdomains and lookalike suffixes remain unverified', async () => {
+    const emails = ['campus@sub.dypiu.ac.in', 'campus@dypiu.ac.in.attacker.test', 'campus@notdypiu.ac.in', 'campus-personal@example.test'];
+    for (const [index, otherEmail] of emails.entries()) {
+      requestIp = '127.0.0.' + (85 + index); cookie = '';
+      const calls = campusProofs.length;
+      assert.equal((await request('/email-otp/send-verification-otp', { email: otherEmail, type: 'sign-in' })).status, 200);
+      const response = await request('/sign-in/email-otp', {
+        email: otherEmail, otp: collectedCodes.get(otherEmail + ':sign-in'), campusEmailProof: 'fake@dypiu.ac.in',
+        verified: true, hd: 'dypiu.ac.in', email_verified: true,
+      });
+      const body = await response.json();
+      assert.equal(response.status, 200, JSON.stringify(body));
+      assert.equal(campusProofs.length, calls);
+      assert.equal((await campusProfile(body.user.id)).verified, false);
+      assert.equal((await prisma.user.findUnique({ where: { id: body.user.id } }))?.campusEmailProof, null);
+      absorbCookies(response);
+      const edit = await request('/update-user', { campusEmailProof: 'fake@dypiu.ac.in', verified: true, role: 'admin' });
+      assert.ok(edit.status < 500);
+      assert.equal((await prisma.user.findUnique({ where: { id: body.user.id } }))?.campusEmailProof, null);
+      assert.equal((await campusProfile(body.user.id)).verified, false);
+      await request('/sign-out', {}); cookie = '';
+    }
+  });
+});
+
 test('password signup, verification, sign-in and OTP reset use the Prisma authentication tables', async (t) => {
   cookie = '';
   requestIp = '127.0.0.2';
@@ -353,6 +507,8 @@ test('Google redirect flow enforces state, PKCE, trusted callbacks and separate 
   let tokenRequests = 0;
   let googleEmail = 'google-student@example.test';
   let googleSubject = 'google-test-student-subject';
+  let googleHostedDomain: string | undefined;
+  let googleEmailVerified = true;
   let challenge = '';
   let nonce: string | null = null;
   globalThis.fetch = async (input, init) => {
@@ -366,7 +522,8 @@ test('Google redirect flow enforces state, PKCE, trusted callbacks and separate 
       assert.ok(verifier);
       assert.equal(createHash('sha256').update(verifier).digest('base64url'), challenge);
       const idToken = await new SignJWT({
-        sub: googleSubject, email: googleEmail, email_verified: true,
+        sub: googleSubject, email: googleEmail, email_verified: googleEmailVerified,
+        ...(googleHostedDomain === undefined ? {} : { hd: googleHostedDomain }),
         name: 'Google Student', ...(nonce ? { nonce } : {}),
       }).setProtectedHeader({ alg: 'RS256', kid: 'test-google-key' })
         .setIssuer('https://accounts.google.com').setAudience('test-client.apps.googleusercontent.com')
@@ -381,8 +538,9 @@ test('Google redirect flow enforces state, PKCE, trusted callbacks and separate 
     }
     throw new Error('Authentication test rejected an unexpected external request.');
   };
-  async function beginGoogle() {
+  async function beginGoogle(extra: Record<string, unknown> = {}) {
     const response = await request('/sign-in/social', {
+      ...extra,
       provider: 'google', callbackURL: '/auth/complete', errorCallbackURL: '/login', disableRedirect: true,
     });
     const body = await response.json();
@@ -487,10 +645,95 @@ test('Google redirect flow enforces state, PKCE, trusted callbacks and separate 
       await request('/sign-out', {});
       cookie = '';
     });
+    await t.test('a verified DYPIU Workspace callback grants campus access without exposing the private proof', async () => {
+      requestIp = '127.0.0.91'; cookie = '';
+      googleEmail = 'campus-workspace@dypiu.ac.in'; googleSubject = 'campus-workspace-subject';
+      googleHostedDomain = 'dypiu.ac.in'; googleEmailVerified = true;
+      const calls = campusProofs.length;
+      const state = await beginGoogle();
+      const response = await request('/callback/google?code=test-code&state=' + encodeURIComponent(state));
+      assert.equal(new URL(response.headers.get('location')!, origin).pathname, '/auth/complete');
+      absorbCookies(response);
+      const session = await (await request('/get-session')).json();
+      assert.equal(session.user.email, googleEmail);
+      assert.equal('campusEmailProof' in session.user, false);
+      assert.equal(campusProofs.length, calls + 1);
+      await assertCampusEmailGrant(session.user.id, googleEmail, 'google_workspace');
+      await request('/sign-out', {}); cookie = '';
+    });
+    await t.test('fresh Google claims must include the exact hosted domain and a verified email', async () => {
+      const cases = [
+        { email: 'campus-no-hd@dypiu.ac.in', hd: undefined, verified: true },
+        { email: 'campus-wrong-hd@dypiu.ac.in', hd: 'other-university.ac.in', verified: true },
+        { email: 'campus-unproven@dypiu.ac.in', hd: 'dypiu.ac.in', verified: false },
+        { email: 'campus-subdomain@sub.dypiu.ac.in', hd: 'dypiu.ac.in', verified: true },
+        { email: 'campus-personal-google@example.test', hd: 'dypiu.ac.in', verified: true },
+      ];
+      for (const [index, value] of cases.entries()) {
+        requestIp = '127.0.0.' + (92 + index); cookie = '';
+        googleEmail = value.email; googleSubject = 'campus-untrusted-' + index;
+        googleHostedDomain = value.hd; googleEmailVerified = value.verified;
+        const calls = campusProofs.length;
+        const state = await beginGoogle({
+          hd: 'dypiu.ac.in', email_verified: true, campusEmailProof: googleEmail,
+          additionalData: { hd: 'dypiu.ac.in', email_verified: true, campusEmailProof: googleEmail },
+        });
+        const forgedProfile = encodeURIComponent(JSON.stringify({ email: googleEmail, hd: 'dypiu.ac.in', email_verified: true }));
+        const response = await request('/callback/google?code=test-code&state=' + encodeURIComponent(state) + '&user=' + forgedProfile);
+        assert.equal(new URL(response.headers.get('location')!, origin).pathname, '/auth/complete');
+        absorbCookies(response);
+        const session = await (await request('/get-session')).json();
+        assert.equal(session.user.email, value.email);
+        assert.equal(session.user.emailVerified, value.verified);
+        assert.equal('campusEmailProof' in session.user, false);
+        assert.equal(campusProofs.length, calls, value.email);
+        const profile = await campusProfile(session.user.id);
+        assert.equal(profile.verified, false, value.email);
+        assert.equal(profile.college_id, null);
+        assert.equal((await prisma.user.findUnique({ where: { id: session.user.id } }))?.campusEmailProof, null);
+        await request('/sign-out', {}); cookie = '';
+      }
+    });
+    await t.test('returning Google users can gain verified campus access from newly proven Workspace claims', async () => {
+      requestIp = '127.0.0.97'; cookie = '';
+      googleEmail = 'campus-existing-google@dypiu.ac.in'; googleSubject = 'campus-existing-google-subject';
+      googleHostedDomain = undefined; googleEmailVerified = true;
+      let state = await beginGoogle();
+      const initial = await request('/callback/google?code=test-code&state=' + encodeURIComponent(state));
+      assert.equal(new URL(initial.headers.get('location')!, origin).pathname, '/auth/complete');
+      absorbCookies(initial);
+      const userId = (await (await request('/get-session')).json()).user.id;
+      assert.equal((await campusProfile(userId)).verified, false);
+      await request('/sign-out', {}); cookie = '';
+      googleHostedDomain = 'dypiu.ac.in';
+      state = await beginGoogle();
+      const returning = await request('/callback/google?code=test-code&state=' + encodeURIComponent(state));
+      assert.equal(new URL(returning.headers.get('location')!, origin).pathname, '/auth/complete');
+      absorbCookies(returning);
+      assert.equal((await (await request('/get-session')).json()).user.id, userId);
+      await assertCampusEmailGrant(userId, googleEmail, 'google_workspace');
+      await request('/sign-out', {}); cookie = '';
+    });
+    await t.test('signed direct Google tokens follow the same hosted-domain proof rules', async () => {
+      requestIp = '127.0.0.98'; cookie = '';
+      const email = 'campus-direct-google@dypiu.ac.in';
+      const token = await new SignJWT({
+        sub: 'campus-direct-google-subject', email, email_verified: true, hd: 'dypiu.ac.in', name: 'Direct Google Student',
+      }).setProtectedHeader({ alg: 'RS256', kid: 'test-google-key' })
+        .setIssuer('https://accounts.google.com').setAudience('test-client.apps.googleusercontent.com')
+        .setIssuedAt().setExpirationTime('5m').sign(privateKey);
+      const response = await request('/sign-in/social', { provider: 'google', idToken: { token } });
+      const body = await response.json();
+      assert.equal(response.status, 200, JSON.stringify(body));
+      assert.equal('campusEmailProof' in body.user, false);
+      await assertCampusEmailGrant(body.user.id, email, 'google_workspace');
+      absorbCookies(response); await request('/sign-out', {}); cookie = '';
+    });
     await t.test('Google cannot silently claim a pre-registered email/password account', async () => {
       requestIp = '127.0.0.4';
       googleEmail = 'pre-registered-student@example.test';
       googleSubject = 'pre-registered-google-subject';
+      googleHostedDomain = undefined; googleEmailVerified = true;
       const registration = await request('/sign-up/email', {
         name: 'Pre-registered Student', email: googleEmail, password: 'Test-only-password-789',
       });

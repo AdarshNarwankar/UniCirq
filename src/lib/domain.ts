@@ -4,7 +4,7 @@ export type Kind = 'sale' | 'rental' | 'hardware' | 'service';
 export type OrderStatus = 'requested' | 'accepted' | 'handed_over' | 'completed' | 'cancelled' | 'disputed';
 export interface College { id:string; name:string; short_name:string; domain:string; city:string }
 export type UniversityOption = Pick<College,'id'|'name'|'short_name'|'city'>;
-export interface Profile { id:string; name:string; role:Role; college_id:string|null; verified:boolean; bio:string; course:string; year:string; avatar:string; suspended:boolean; created_at:string }
+export interface Profile { id:string; name:string; role:Role; college_id:string|null; verified:boolean; bio:string; course:string; year:string; avatar:string; suspended:boolean; created_at:string; campus_verification_source?:'university_email'|null; campus_email_verified_at?:string|null }
 export interface Listing { id:string; owner_id:string; college_id:string; title:string; description:string; kind:Kind; category:string; price:number; unit:string; condition:string; image:string; location:string; status:'active'|'pending'|'removed'|'closed'; created_at:string }
 export interface StudentRequest { id:string; owner_id:string; college_id:string; title:string; description:string; category:string; budget:number; status:'open'|'fulfilled'; created_at:string }
 export interface Conversation { id:string; member_a:string; member_b:string; listing_id:string|null; request_id:string|null; created_at:string }

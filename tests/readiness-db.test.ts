@@ -46,6 +46,15 @@ test('database audit rejects the migration owner login', async () => {
   assert.equal(report.ok, false); failure(report, 'runtime-login'); failure(report, 'table-ownership'); failure(report, 'migration-owner-separation');
 });
 
+test('database audit rejects exposed or weakened university verification helpers', async () => {
+  await db.exec('GRANT EXECUTE ON FUNCTION app_apply_university_email_verification(uuid) TO audit_runtime');
+  try { assert.ok(failure(await runtimeAudit(), 'protected-function-grants').items?.includes('app_apply_university_email_verification(uuid)')); }
+  finally { await db.exec('REVOKE EXECUTE ON FUNCTION app_apply_university_email_verification(uuid) FROM audit_runtime'); }
+  await db.exec('ALTER FUNCTION app_refresh_university_email_verification() RESET search_path');
+  try { assert.ok(failure(await runtimeAudit(), 'protected-function-grants').items?.includes('app_refresh_university_email_verification()')); }
+  finally { await db.exec('ALTER FUNCTION app_refresh_university_email_verification() SET search_path=public,pg_temp'); }
+});
+
 test('database audit rejects inherited app writes and column privilege escalation', async () => {
   await db.exec('CREATE ROLE audit_writer NOLOGIN; GRANT audit_writer TO audit_runtime; GRANT UPDATE(role) ON profiles TO audit_writer;');
   try { assert.ok(failure(await runtimeAudit(), 'application-write-grants').items?.includes('profiles')); }
