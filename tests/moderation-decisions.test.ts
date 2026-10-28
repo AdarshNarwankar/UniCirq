@@ -69,7 +69,7 @@ before(async () => {
   await db.exec(`REVOKE CREATE ON SCHEMA public FROM PUBLIC; CREATE ROLE moderation_runtime LOGIN;
     GRANT USAGE ON SCHEMA public TO moderation_runtime;
     GRANT SELECT,INSERT,UPDATE,DELETE ON "user","session",account,verification,"rateLimit" TO moderation_runtime;
-    GRANT unicirq_app TO moderation_runtime;`);
+    GRANT unicirq_app,unicirq_billing_backend TO moderation_runtime;`);
 });
 after(async () => { await db.close(); });
 

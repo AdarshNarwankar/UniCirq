@@ -7,7 +7,7 @@ const config: NextConfig = {
     {key:'Referrer-Policy',value:'strict-origin-when-cross-origin'},
     {key:'X-Frame-Options',value:'DENY'},
     {key:'Permissions-Policy',value:'camera=(), microphone=(), geolocation=()'},
-    {key:'Content-Security-Policy',value:"default-src 'self'; script-src 'self' 'unsafe-inline'"+(process.env.NODE_ENV==='production'?'':" 'unsafe-eval'")+"; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://images.unsplash.com; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"}
+    {key:'Content-Security-Policy',value:"default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com"+(process.env.NODE_ENV==='production'?'':" 'unsafe-eval'")+"; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://images.unsplash.com; font-src 'self'; connect-src 'self' https://api.razorpay.com https://checkout.razorpay.com; frame-src https://api.razorpay.com https://checkout.razorpay.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"}
   ]}] }
 };
 export default config;

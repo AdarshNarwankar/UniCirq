@@ -40,7 +40,7 @@ before(async()=> {
   CREATE ROLE verification_runtime LOGIN;
   GRANT USAGE ON SCHEMA public TO verification_runtime;
   GRANT SELECT,INSERT,UPDATE,DELETE ON "user","session",account,verification,"rateLimit" TO verification_runtime;
-  GRANT unicirq_app TO verification_runtime;`);
+  GRANT unicirq_app,unicirq_billing_backend TO verification_runtime;`);
 });
 after(async()=>{ await db.close(); });
 

@@ -27,6 +27,7 @@ const sections = [
     { label: 'Moderation queue', href: adminPaths.queue, icon: Flag },
     { label: 'Trust & safety', href: adminPaths.safety, icon: ShieldCheck },
     { label: 'Activity analytics', href: '/admin/analytics', icon: ChartNoAxesCombined },
+    { label: 'Billing', href: '/admin/billing', icon: Wallet },
     { label: 'Audit log', href: '/admin/audit', icon: FileClock },
     { label: 'Notifications', href: '/admin/notifications', icon: Bell },
   ] },

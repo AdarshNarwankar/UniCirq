@@ -9,10 +9,12 @@ export interface DatabaseReadinessReport { ok: boolean; checks: ReadinessCheck[]
 export interface MigrationChecksum { name: string; checksum: string }
 
 export const authTables = ['user', 'session', 'account', 'verification', 'rateLimit'] as const;
-export const applicationTables = ['colleges', 'profiles', 'listings', 'listing_photos', 'student_requests', 'conversations', 'messages', 'orders', 'order_events', 'saved_items', 'support_tickets', 'notifications', 'verification_requests', 'business_profiles', 'deals', 'audit_logs', 'action_limits'] as const;
-const readableApplicationTables = applicationTables.filter(name => name !== 'action_limits');
-const accessFunctions = ['app_user_id()', 'app_is_admin()', 'app_campus()', 'app_active()', 'app_participant(uuid)', 'app_order_listing(uuid)', 'app_conversation_listing(uuid)', 'unicirq_command(jsonb)', 'app_choose_university(jsonb)', 'app_create_listing_with_photo(jsonb,bytea)'];
-const authOnlyFunctions = ['app_apply_university_email_verification(uuid)', 'app_refresh_university_email_verification()', 'create_student_profile()'];
+export const applicationTables = ['colleges', 'profiles', 'listings', 'listing_photos', 'student_requests', 'conversations', 'messages', 'orders', 'order_events', 'saved_items', 'support_tickets', 'notifications', 'verification_requests', 'business_profiles', 'deals', 'audit_logs', 'action_limits', 'billing_settings', 'billing_records', 'billing_entitlements', 'billing_events', 'billing_limits'] as const;
+const readableApplicationTables = applicationTables.filter(name => name !== 'action_limits' && name !== 'billing_limits');
+const appSelectTables = applicationTables.filter(name => name !== 'billing_limits');
+const accessFunctions = ['app_user_id()', 'app_is_admin()', 'app_campus()', 'app_active()', 'app_participant(uuid)', 'app_order_listing(uuid)', 'app_conversation_listing(uuid)', 'unicirq_command(jsonb)', 'app_choose_university(jsonb)', 'app_create_listing_with_photo(jsonb,bytea)', 'app_billing_quote(jsonb)', 'app_billing_create(jsonb)', 'app_billing_configure(jsonb)'];
+const authOnlyFunctions = ['app_apply_university_email_verification(uuid)', 'app_refresh_university_email_verification()', 'create_student_profile()', 'app_billing_grant(uuid)'];
+const billingBackendFunctions = ['app_billing_backend_record(uuid)', 'app_billing_gateway_record(text)', 'app_billing_attach(uuid,text)', 'app_billing_capture(uuid,text,text,bigint,text,text)', 'app_billing_refund(uuid,text,bigint,text)', 'app_billing_limit(text,integer,integer)'];
 const forbiddenRoles = ['pg_read_all_data', 'pg_write_all_data', 'pg_read_server_files', 'pg_write_server_files', 'pg_execute_server_program'];
 
 function finish(checks: ReadinessCheck[]): DatabaseReadinessReport { return { ok: checks.every(check => check.ok), checks }; }
@@ -87,7 +89,7 @@ export async function auditRuntimeDatabase(db: DatabaseQueryable): Promise<Datab
       EXISTS(SELECT FROM pg_roles r WHERE (r.rolname=session_user OR pg_has_role(session_user,r.oid,'MEMBER')) AND r.oid=p.proowner) AS owned
       FROM unnest($1::text[]) AS expected(name) LEFT JOIN pg_proc p ON p.oid=to_regprocedure('public.'||expected.name)`, [accessFunctions])).rows;
     const unavailable = names(functions.filter(row => !row.present || !row.executable));
-    const unsafeCommands = names(functions.filter(row => ['unicirq_command(jsonb)', 'app_create_listing_with_photo(jsonb,bytea)'].includes(String(row.name)) &&
+    const unsafeCommands = names(functions.filter(row => ['unicirq_command(jsonb)', 'app_create_listing_with_photo(jsonb,bytea)', 'app_billing_quote(jsonb)', 'app_billing_create(jsonb)', 'app_billing_configure(jsonb)'].includes(String(row.name)) &&
       (!row.definer || !Array.isArray(row.settings) || !row.settings.some(value => String(value).replace(/\s/g, '') === 'search_path=public,pg_temp'))));
     const publicFunctions = names(functions.filter(row => row.public_execute));
     const ownedFunctions = names(functions.filter(row => row.owned));
@@ -100,14 +102,49 @@ export async function auditRuntimeDatabase(db: DatabaseQueryable): Promise<Datab
       FROM unnest($1::text[]) expected(name) LEFT JOIN pg_proc p ON p.oid=to_regprocedure('public.'||expected.name)`, [authOnlyFunctions])).rows;
     const unsafeAuthHelpers = names(authHelpers.filter(row => !row.present || row.executable || !row.definer || !Array.isArray(row.settings) ||
       !row.settings.some(value => String(value).replace(/\s/g, '') === 'search_path=public,pg_temp')));
-    checks.push(check('protected-function-grants', unavailable.length === 0 && ownedFunctions.length === 0 && legacyCommands.length === 0 && unsafeCommands.length === 0 && publicFunctions.length === 0 && unsafeAuthHelpers.length === 0, 'Application policy helpers require restricted grants and separate ownership; auth triggers and superseded commands must stay owner-only.', [...new Set([...unavailable, ...ownedFunctions, ...unsafeCommands, ...publicFunctions, ...names(legacyCommands), ...unsafeAuthHelpers])]));
+    checks.push(check('protected-function-grants', unavailable.length === 0 && ownedFunctions.length === 0 && legacyCommands.length === 0 && unsafeCommands.length === 0 && publicFunctions.length === 0 && unsafeAuthHelpers.length === 0, 'Application policy helpers require restricted grants and separate ownership; private helpers and superseded commands must stay owner-only.', [...new Set([...unavailable, ...ownedFunctions, ...unsafeCommands, ...publicFunctions, ...names(legacyCommands), ...unsafeAuthHelpers])]));
+
+    const billingRole = (await db.query(`SELECT r.oid,r.rolname,
+      NOT (r.rolcanlogin OR r.rolsuper OR r.rolbypassrls OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication) AS restricted,
+      pg_has_role(session_user,r.oid,'MEMBER') AS reachable,
+      pg_has_role('unicirq_app',r.oid,'MEMBER') AS app_member,
+      has_schema_privilege(r.oid,'public','USAGE') AS schema_usage
+      FROM pg_roles r WHERE r.rolname='unicirq_billing_backend'`)).rows[0];
+    const billingTableAccess = await db.query(`SELECT c.relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+      JOIN pg_roles r ON r.rolname='unicirq_billing_backend'
+      WHERE n.nspname='public' AND c.relkind IN('r','p') AND (r.oid=c.relowner OR
+        has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR
+        has_any_column_privilege(r.oid,c.oid,'SELECT') OR has_any_column_privilege(r.oid,c.oid,'INSERT') OR
+        has_any_column_privilege(r.oid,c.oid,'UPDATE') OR has_any_column_privilege(r.oid,c.oid,'REFERENCES'))`);
+    const billingFunctions = (await db.query(`SELECT expected.name,p.oid IS NOT NULL AS present,p.prosecdef AS definer,p.proconfig AS settings,
+      CASE WHEN p.oid IS NULL OR backend.oid IS NULL THEN false ELSE has_function_privilege(backend.oid,p.oid,'EXECUTE') END AS backend_execute,
+      CASE WHEN p.oid IS NULL THEN false ELSE has_function_privilege('unicirq_app',p.oid,'EXECUTE') END AS app_execute,
+      EXISTS(SELECT FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) privilege WHERE privilege.grantee=0 AND privilege.privilege_type='EXECUTE') AS public_execute,
+      EXISTS(SELECT FROM pg_roles r WHERE (r.rolname=session_user OR pg_has_role(session_user,r.oid,'MEMBER')) AND r.oid=p.proowner) AS owned
+      FROM unnest($1::text[]) expected(name) LEFT JOIN pg_proc p ON p.oid=to_regprocedure('public.'||expected.name)
+      LEFT JOIN pg_roles backend ON backend.rolname='unicirq_billing_backend'`, [billingBackendFunctions])).rows;
+    const unsafeBillingFunctions = names(billingFunctions.filter(row => !row.present || !row.backend_execute || row.app_execute || row.public_execute || row.owned || !row.definer ||
+      !Array.isArray(row.settings) || !row.settings.some(value => String(value).replace(/\s/g, '') === 'search_path=public,pg_temp')));
+    const exposedBillingLimits = await db.query(`SELECT c.relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relname='billing_limits' AND (has_table_privilege('unicirq_app',c.oid,'SELECT') OR
+        has_any_column_privilege('unicirq_app',c.oid,'SELECT') OR EXISTS(SELECT FROM pg_policy policy WHERE policy.polrelid=c.oid AND
+          (0=ANY(policy.polroles) OR (SELECT oid FROM pg_roles WHERE rolname='unicirq_app')=ANY(policy.polroles))))`);
+    let assumedBilling = false;
+    if (billingRole?.reachable) {
+      await db.query('SET LOCAL ROLE unicirq_billing_backend');
+      assumedBilling = Boolean((await db.query("SELECT current_user='unicirq_billing_backend' AS assumed")).rows[0]?.assumed);
+    }
+    checks.push(check('billing-backend-boundary', Boolean(billingRole?.restricted && billingRole.reachable && !billingRole.app_member && billingRole.schema_usage && assumedBilling) &&
+      billingTableAccess.rows.length === 0 && unsafeBillingFunctions.length === 0 && exposedBillingLimits.rows.length === 0,
+      'Payment confirmation requires a restricted backend-only role with no table access; application callers must not assume it or execute its functions.',
+      [...unsafeBillingFunctions, ...names(billingTableAccess.rows), ...names(exposedBillingLimits.rows)]));
 
     await db.query('SET LOCAL ROLE unicirq_app');
     const appRole = (await db.query(`SELECT current_user='unicirq_app' AS assumed,
       NOT (rolsuper OR rolbypassrls OR rolcanlogin OR rolcreaterole OR rolcreatedb OR rolreplication) AS restricted
       FROM pg_roles WHERE rolname=current_user`)).rows[0];
     const appReads = await db.query(`SELECT expected.name FROM unnest($1::text[]) expected(name)
-      WHERE to_regclass('public.'||quote_ident(expected.name)) IS NULL OR NOT has_table_privilege(current_user,to_regclass('public.'||quote_ident(expected.name)),'SELECT')`, [applicationTables]);
+      WHERE to_regclass('public.'||quote_ident(expected.name)) IS NULL OR NOT has_table_privilege(current_user,to_regclass('public.'||quote_ident(expected.name)),'SELECT')`, [appSelectTables]);
     checks.push(check('application-role', Boolean(appRole?.assumed && appRole.restricted) && appReads.rows.length === 0, 'The login must assume a non-login RLS role with application read grants.', names(appReads.rows)));
   } catch { checks.push(check('runtime-audit', false, 'Catalog inspection or restricted-role assumption failed. Check the runtime grants and applied migrations.')); }
   finally { try { await db.query('ROLLBACK'); } catch { checks.push(check('runtime-rollback', false, 'The read-only audit connection did not close its transaction.')); } }

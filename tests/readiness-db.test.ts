@@ -26,7 +26,7 @@ before(async () => {
     CREATE ROLE audit_runtime LOGIN;
     GRANT USAGE ON SCHEMA public TO audit_runtime;
     GRANT SELECT,INSERT,UPDATE,DELETE ON "user","session",account,verification,"rateLimit" TO audit_runtime;
-    GRANT unicirq_app TO audit_runtime;`);
+    GRANT unicirq_app,unicirq_billing_backend TO audit_runtime;`);
   for (const file of expected) await db.query('INSERT INTO unicirq_migrations(name,checksum) VALUES($1,$2)', [file.name, file.checksum]);
 });
 after(async () => { await db.close(); });
@@ -35,7 +35,7 @@ test('database audit accepts the documented restricted login without reading per
   queries.length = 0;
   const report = await runtimeAudit();
   assert.equal(report.ok, true, JSON.stringify(report.checks));
-  assert.equal(report.checks.length, 11);
+  assert.equal(report.checks.length, 12);
   assert.ok(queries.includes('BEGIN READ ONLY')); assert.equal(queries.at(-1), 'ROLLBACK');
   assert.ok(!queries.some(query => /\bFROM\s+(?:public\.)?["']?(?:user|session|profiles|orders|messages)\b/i.test(query)));
   assert.equal((await db.query<{ transaction_read_only: string }>('SHOW transaction_read_only')).rows[0].transaction_read_only, 'off');
@@ -86,6 +86,39 @@ test('database audit rejects authentication grant options and function ownership
   await db.exec('GRANT SELECT ON "user" TO audit_runtime WITH GRANT OPTION; ALTER FUNCTION app_campus() OWNER TO audit_runtime;');
   try { const report = await runtimeAudit(); assert.ok(failure(report, 'auth-table-grants').items?.includes('user')); assert.ok(failure(report, 'protected-function-grants').items?.includes('app_campus()')); }
   finally { await db.exec('REVOKE GRANT OPTION FOR SELECT ON "user" FROM audit_runtime; ALTER FUNCTION app_campus() OWNER TO postgres;'); }
+});
+
+test('database audit requires the backend role without granting its payment power to application callers', async () => {
+  await db.exec('REVOKE unicirq_billing_backend FROM audit_runtime');
+  try { failure(await runtimeAudit(), 'billing-backend-boundary'); }
+  finally { await db.exec('GRANT unicirq_billing_backend TO audit_runtime'); }
+  await db.exec('GRANT unicirq_billing_backend TO unicirq_app');
+  try { failure(await runtimeAudit(), 'billing-backend-boundary'); }
+  finally { await db.exec('REVOKE unicirq_billing_backend FROM unicirq_app'); }
+  await db.exec('ALTER ROLE unicirq_billing_backend LOGIN');
+  try { failure(await runtimeAudit(), 'billing-backend-boundary'); }
+  finally { await db.exec('ALTER ROLE unicirq_billing_backend NOLOGIN'); }
+});
+
+test('database audit rejects backend table access and weakened payment confirmation functions', async () => {
+  await db.exec('GRANT SELECT ON billing_limits TO unicirq_app');
+  try { assert.ok(failure(await runtimeAudit(), 'billing-backend-boundary').items?.includes('billing_limits')); }
+  finally { await db.exec('REVOKE SELECT ON billing_limits FROM unicirq_app'); }
+  await db.exec('GRANT SELECT ON billing_records TO unicirq_billing_backend');
+  try { assert.ok(failure(await runtimeAudit(), 'billing-backend-boundary').items?.includes('billing_records')); }
+  finally { await db.exec('REVOKE SELECT ON billing_records FROM unicirq_billing_backend'); }
+  await db.exec('GRANT EXECUTE ON FUNCTION app_billing_capture(uuid,text,text,bigint,text,text) TO PUBLIC');
+  try { assert.ok(failure(await runtimeAudit(), 'billing-backend-boundary').items?.includes('app_billing_capture(uuid,text,text,bigint,text,text)')); }
+  finally { await db.exec('REVOKE EXECUTE ON FUNCTION app_billing_capture(uuid,text,text,bigint,text,text) FROM PUBLIC'); }
+  await db.exec('ALTER FUNCTION app_billing_capture(uuid,text,text,bigint,text,text) RESET search_path');
+  try { failure(await runtimeAudit(), 'billing-backend-boundary'); }
+  finally { await db.exec('ALTER FUNCTION app_billing_capture(uuid,text,text,bigint,text,text) SET search_path=public,pg_temp'); }
+  await db.exec('REVOKE EXECUTE ON FUNCTION app_billing_attach(uuid,text) FROM unicirq_billing_backend');
+  try { failure(await runtimeAudit(), 'billing-backend-boundary'); }
+  finally { await db.exec('GRANT EXECUTE ON FUNCTION app_billing_attach(uuid,text) TO unicirq_billing_backend'); }
+  await db.exec('GRANT EXECUTE ON FUNCTION app_billing_grant(uuid) TO unicirq_billing_backend');
+  try { assert.ok(failure(await runtimeAudit(), 'protected-function-grants').items?.includes('app_billing_grant(uuid)')); }
+  finally { await db.exec('REVOKE EXECUTE ON FUNCTION app_billing_grant(uuid) FROM unicirq_billing_backend'); }
 });
 
 test('migration audit checks recorded checksums without mutations and does not expose checksums', async () => {

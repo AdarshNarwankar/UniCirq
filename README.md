@@ -23,14 +23,17 @@ Open http://127.0.0.1:3000 and choose **Explore the student app**. Seller, Busin
 - Reviewed transaction requests, participant-specific confirmations, original request terms, timestamped activity history, rental overlap prevention, cancellation and disputes.
 - Campus/business verification applications, admin review, listing/deal moderation and audit history.
 - Campus business offers, support reports and managed-sale interest intake.
+- Student, Business and Admin billing screens with server-priced statements, Razorpay test checkout, signed payment/refund reconciliation, and free pilot business plans.
 
-Messages refresh periodically. Payments, uploads, merchandise, storage and managed-sale operations remain modular follow-up work. Orders record participant-confirmed activity, without claiming escrow or payment protection.
+Messages refresh periodically. Listing photos are normalized and stored with campus access controls. Billing uses test mode only; live payments, seller payouts, merchandise, storage and managed-sale operations remain follow-up work. Orders record participant-confirmed activity, without claiming escrow or payment protection.
 
 See [implementation plan, structure, data model and workflow](docs/IMPLEMENTATION.md) and [exchange workflow and validation](docs/EXCHANGE-FLOW.md).
 
 See [PostgreSQL + Prisma setup and live readiness checks](docs/PRODUCTION-SETUP.md). Prisma manages authentication tables; the marketplace retains its SQL transactions and row policies. SQL migrations remain authoritative. Do not use Prisma db push/migrate against this auth-only schema.
 
 See [login, signup, Google and university onboarding](docs/AUTHENTICATION.md). Proven `@dypiu.ac.in` mailboxes can connect to DYPIU automatically; other students choose their university and request campus verification.
+
+See [billing rules, Razorpay test setup and validation](docs/BILLING.md). Direct deals stay free; optional checkout applies the published 5% sale and 8% rental/service rates with a ₹19 minimum. Test boosts cost ₹29 for seven days, and business plans remain waived during the initial pilot. Tax must be explicitly configured before paid test checkout.
 
 ## Database setup
 
@@ -46,6 +49,8 @@ GRANT SELECT, INSERT, UPDATE, DELETE
   ON "user", "session", account, verification, "rateLimit"
   TO unicirq_runtime;
 GRANT unicirq_app TO unicirq_runtime;
+-- Server-only payment verification functions; never grant this role to unicirq_app.
+GRANT unicirq_billing_backend TO unicirq_runtime;
 ```
 
 The runtime login must not own application tables, inherit an owner/admin role, have `BYPASSRLS`, or have schema-creation privileges. Check inherited as well as direct permissions. Do not grant application-table writes. Auth manages its own tables; application access uses row policies and a permission-checking command function.
@@ -92,7 +97,7 @@ Verify exactly one expected account changed. Users cannot promote themselves thr
 
 Import as a Next.js project, install with `npm ci` and build with `npm run build`. Select Node.js 22+ and set the runtime variables above. Apply migrations separately before enabling traffic; do not migrate during each Vercel build. Configure `APP_URL` for the environment's canonical origin. Use separate test database/email settings for previews.
 
-No hosted database, email domain or Vercel deployment has been provisioned by this task. A build succeeds without secrets, but production sign-in requires configuration.
+Apply billing migration `013_billing.sql` and the restricted backend role grant before publishing billing code. The project already has hosted database/authentication configuration; new environments still need their own setup. A build succeeds without secrets, but sign-in and test checkout require their corresponding runtime configuration. This release deliberately rejects live Razorpay keys.
 
 ## Validation
 

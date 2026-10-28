@@ -30,6 +30,7 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
     ] },
     { title: 'YOUR EVERYDAY', links: [
       { path: 'messages', label: 'Messages', icon: MessageCircle }, { path: 'activity', label: 'Orders & activity', icon: ReceiptText },
+      { path: 'billing', label: 'Billing & receipts', icon: ReceiptText },
       { path: 'saved', label: 'Saved items', icon: Heart, badge: data.saved.length }, { path: 'managed-sale', label: 'Managed selling', icon: HeartHandshake },
     ] },
     { title: 'ACCOUNT', links: [
@@ -38,6 +39,7 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
   ] : [
     { title: 'CAMPUS BUSINESS', links: [
       { path: 'deals', label: 'My campus deals', icon: Tag }, { path: 'profile', label: 'Business profile', icon: Store },
+      { path: 'billing', label: 'Plans & billing', icon: ReceiptText },
     ] },
     { title: 'YOUR WORKSPACE', links: [
       { path: 'notifications', label: 'Notifications', icon: Bell, badge: unread }, { path: 'settings', label: 'Settings', icon: Settings }, { path: 'support', label: 'Support tickets', icon: LifeBuoy },

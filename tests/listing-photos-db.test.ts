@@ -50,7 +50,7 @@ before(async()=> {
   CREATE ROLE photo_runtime LOGIN;
   GRANT USAGE ON SCHEMA public TO photo_runtime;
   GRANT SELECT,INSERT,UPDATE,DELETE ON "user","session",account,verification,"rateLimit" TO photo_runtime;
-  GRANT unicirq_app TO photo_runtime;`);
+  GRANT unicirq_app,unicirq_billing_backend TO photo_runtime;`);
 });
 after(async()=>{ await db.close(); });
 

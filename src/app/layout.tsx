@@ -22,5 +22,6 @@ import './admin-polish.css';
 import './student-polish.css';
 import './selling.css';
 import './trading-navigation.css';
+import './billing.css';
 export const metadata:Metadata={title:{default:'UniCirq — Your Campus, Connected.',template:'%s · UniCirq'},description:'Buy, sell, borrow and find your people in your verified campus community.',icons:{icon:'/favicon.svg'}};
 export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html:themeInitScript}} /></head><body><ThemeProvider>{children}</ThemeProvider></body></html>}

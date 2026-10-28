@@ -6,7 +6,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const { path = [] } = await params;
   const page = path[0] ?? '';
   const isDetail = path.length === 2 && (page === 'listings' || page === 'sell' && path[1] === 'new');
-  if (path.length > 2 || !['', 'buy', 'sell', 'marketplace', 'rentals', 'hardware', 'services', 'saved', 'listings', 'create', 'requests', 'messages', 'activity', 'managed-sale', 'support', 'profile', 'settings', 'deals', 'notifications'].includes(page) || path.length === 2 && !isDetail || page === 'listings' && !path[1]) notFound();
+  if (path.length > 2 || !['', 'buy', 'sell', 'marketplace', 'rentals', 'hardware', 'services', 'saved', 'listings', 'create', 'requests', 'messages', 'activity', 'billing', 'managed-sale', 'support', 'profile', 'settings', 'deals', 'notifications'].includes(page) || path.length === 2 && !isDetail || page === 'listings' && !path[1]) notFound();
   const rawQuery = await searchParams;
   const query = Object.fromEntries(Object.entries(rawQuery).map(([key, value]) => [key, (Array.isArray(value) ? value[0] : value) ?? '']));
   if (page === 'marketplace') {
