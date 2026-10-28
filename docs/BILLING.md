@@ -35,6 +35,8 @@ Business plans remain free while the pilot waiver is enabled. Plans renew manual
 
 These pages retain the app's server role guards. Billing is fetched separately from general dashboard snapshots, with cursor pagination and a persistent per-user admission limit.
 
+Each quote and saved statement has a bill summary with the related item/plan, campus and available participant details, rental quantity/period, line items and final customer total. Service-provider deductions are shown separately from the customer's bill. Pilot plan discounts show the numeric deduction. Captured statements distinguish original totals, refunds and the remaining captured test amount; direct arrangements are explicitly unverified. Saved statements include full references, creation/capture timestamps and a print/save-PDF action. These summaries use the stored quote and do not recalculate historical charges.
+
 `GET /api/billing` returns only the caller's records/beneficiary records, or the administrator's network-wide view. Its totals cover all RLS-visible billing history, not just the current page. Captured value includes principal; fee/tax/seller-share allocations are **before refunds and operating costs**. Refunds are shown separately. None of these metrics is profit or a payout confirmation.
 
 `POST /api/billing` supports:

@@ -7,6 +7,9 @@ import type { BillingQuote, BillingRecord, BillingSelection, BillingSummary } fr
 import { moneyLabel } from '@/lib/domain';
 import { useApp } from './provider';
 import { Modal } from './primitives';
+import { BillSummary, type BillContext } from './bill-summary';
+import { billSummaryView } from '@/lib/bill-summary';
+import { rentalBoundaryLabel } from '@/lib/rental-pricing';
 
 type Checkout = { key: string; amount: number; currency: 'INR'; order_id: string; name: string; description: string; billing_id: string };
 type PaymentResult = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
@@ -45,20 +48,7 @@ async function billingRequest<T>(path: string, value?: object, signal?: AbortSig
 const dateLabel = (value: string) => new Date(value).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
 const amount = (value: number | null) => value === null ? 'Pending tax setup' : moneyLabel(value);
 const purposeLabel = (purpose: BillingRecord['purpose']) => purpose === 'order' ? 'Campus exchange' : purpose === 'boost' ? 'Listing boost' : 'Business plan';
-const feePayer = (quote: BillingQuote) => ({ buyer: 'Buyer', renter: 'Renter', provider: 'Service provider', business: 'Business', seller: 'Listing owner', none: 'No platform charge' })[quote.fee_payer];
-const recordLabel = (record: BillingRecord) => record.status === 'paid' ? record.refunded_amount > 0 ? 'Partially refunded · test' : 'Captured · test' : record.status === 'refunded' ? 'Refunded · test' : record.status === 'recorded' ? record.quote.pilot_waived ? 'Pilot · free' : 'Direct record' : record.status === 'pending' ? 'Awaiting payment' : 'Ready to pay';
-
-function QuoteDetails({ quote }: { quote: BillingQuote }) {
-  const product = quote.purpose !== 'order';
-  return <dl className="billing-breakdown">
-    <div><dt>{product ? 'Standard price' : 'Agreed exchange price'}</dt><dd>{moneyLabel(quote.base_amount)}</dd></div>
-    {!product && <div><dt>UniCirq fee <small>{feePayer(quote)}</small></dt><dd>{moneyLabel(quote.platform_fee)}</dd></div>}
-    {quote.pilot_waived && <div className="billing-waiver"><dt>Pilot discount</dt><dd>Free during the pilot</dd></div>}
-    <div><dt>Tax on UniCirq charge{quote.tax_bps !== null && <small>{quote.tax_bps / 100}%</small>}</dt><dd>{amount(quote.tax_amount)}</dd></div>
-    {!product && <><div><dt>Refundable deposit</dt><dd>Not collected</dd></div><div><dt>Seller / provider share</dt><dd>{amount(quote.seller_net)}</dd></div></>}
-    <div className="billing-total"><dt>{quote.payment_mode === 'direct' ? 'Agreed direct amount' : 'Total payable'}</dt><dd>{amount(quote.buyer_total)}</dd></div>
-  </dl>;
-}
+const recordLabel = (record: BillingRecord) => billSummaryView(record.quote, record).status;
 
 function PricingGuide({ pilot }: { pilot: boolean }) {
   return <section className="billing-panel billing-pricing" aria-labelledby="billing-pricing-title"><header><div><span className="eyebrow">CLEAR FROM THE START</span><h2 id="billing-pricing-title">What UniCirq charges</h2></div><ShieldCheck size={21} /></header>
@@ -159,6 +149,24 @@ export function Billing({ initialOrderId = '' }: { initialOrderId?: string }) {
   const relatedTitle = (record: BillingRecord) => record.purpose === 'order'
     ? data.orders.find(order => order.id === record.reference_id)?.terms_snapshot.title
     : record.purpose === 'boost' ? data.listings.find(listing => listing.id === record.reference_id)?.title : undefined;
+  function contextFor(value: BillingSelection | BillingRecord, quote: BillingQuote): BillContext {
+    const order = value.purpose === 'order' ? data.orders.find(item => item.id === value.reference_id) : undefined;
+    const listing = value.purpose === 'boost' ? data.listings.find(item => item.id === value.reference_id) : undefined;
+    const ownerId = 'owner_id' in value ? value.owner_id : data.user.id;
+    const customerId = order?.buyer_id ?? ownerId;
+    const customer = data.user.id === customerId ? data.user : data.profiles.find(profile => profile.id === customerId);
+    const providerId = order?.seller_id ?? ('beneficiary_id' in value ? value.beneficiary_id : undefined);
+    const provider = data.user.id === providerId ? data.user : data.profiles.find(profile => profile.id === providerId);
+    const campusId = 'college_id' in value ? value.college_id : data.user.college_id;
+    return {
+      title: order?.terms_snapshot.title ?? listing?.title ?? quote.description,
+      customer: customer?.name ?? (customerId ? `Account ${customerId.slice(0, 8).toUpperCase()}` : undefined),
+      provider: provider?.name ?? (providerId ? `Account ${providerId.slice(0, 8).toUpperCase()}` : undefined),
+      campus: data.colleges.find(campus => campus.id === campusId)?.short_name,
+      quantity: order?.terms_snapshot.billing_units ? `${order.terms_snapshot.billing_units} ${order.terms_snapshot.unit}${order.terms_snapshot.billing_units === 1 ? '' : 's'} × ${moneyLabel(order.terms_snapshot.price)}` : undefined,
+      period: order?.kind === 'rental' && (order.starts_on || order.starts_at) && (order.ends_on || order.ends_at) ? `${rentalBoundaryLabel(order, 'start')} – ${rentalBoundaryLabel(order, 'end')}` : undefined,
+    };
+  }
   const records = summary?.records.filter(record => `${record.id} ${record.reference_id ?? ''} ${relatedTitle(record) ?? ''} ${record.quote.description} ${purposeLabel(record.purpose)} ${record.status}`.toLowerCase().includes(search.toLowerCase())) ?? [];
   const chargeable = quote && quote.payment_mode === 'checkout' && quote.buyer_total !== null && quote.buyer_total > 0;
   const unavailable = Boolean(chargeable && !summary?.capabilities.configured);
@@ -178,7 +186,7 @@ export function Billing({ initialOrderId = '' }: { initialOrderId?: string }) {
           {business ? <><div className="billing-plan-grid" role="group" aria-label="Business plan">{[{ id: 'featured', name: 'Featured', price: 49900, detail: 'Featured business placement and campaign reporting.' }, { id: 'growth', name: 'Growth', price: 99900, detail: 'Additional promotional placement and more detailed reporting.' }].map(item => <button key={item.id} type="button" aria-pressed={plan === item.id} onClick={() => setPlan(item.id as 'featured' | 'growth')}><span>{item.name}{plan === item.id && <Check size={16} />}</span><strong>{summary.settings.business_pilot ? 'Free' : moneyLabel(item.price)}<small>/ month</small></strong><p>{item.detail}</p>{summary.settings.business_pilot && <small>Normally {moneyLabel(item.price)} · waived for the pilot</small>}</button>)}</div><p className="billing-fine">One calendar month at a time. Renew manually; no recurring debit. Test access does not activate public promotional placement.</p></> : purpose === 'order' ? eligibleOrders.length ? <div className="stack-form billing-selection"><label>Accepted exchange<select value={chosenOrder} onChange={event => setOrderId(event.target.value)} disabled={busy}>{eligibleOrders.map(order => <option key={order.id} value={order.id}>{order.terms_snapshot.title} · {moneyLabel(order.amount)}</option>)}</select></label><label>Payment arrangement<select value={mode} onChange={event => setMode(event.target.value as 'direct' | 'checkout')} disabled={busy}><option value="direct">Arrange directly · no UniCirq fee</option><option value="checkout">Try UniCirq checkout · test payment</option></select></label><p className="billing-fine">Direct arrangements are recorded for reference. Their payments are not collected or verified by UniCirq.</p></div> : <div className="billing-empty"><ReceiptText size={26} /><h3>No accepted exchanges yet</h3><p>Once a seller accepts your request, its billing options appear here.</p><Link className="text-link" href="/student/activity">Open orders & activity <ArrowRight size={14} /></Link></div> : ownListings.length ? <div className="stack-form billing-selection"><label>Your active listing<select value={chosenListing} onChange={event => setListingId(event.target.value)} disabled={busy}>{ownListings.map(listing => <option key={listing.id} value={listing.id}>{listing.title}</option>)}</select></label><p className="billing-fine">₹29 for seven days. This test creates a sandbox boost entitlement; it does not change live marketplace ranking.</p></div> : <div className="billing-empty"><Sparkles size={25} /><h3>Create a listing first</h3><p>Boosts are available for your active listings.</p><Link className="text-link" href="/student/create">Share a listing <ArrowRight size={14} /></Link></div>}
           {quoteLoading && <p className="billing-inline-loading" role="status"><LoaderCircle size={16} className="spin" />Preparing your quote…</p>}
           {quoteError && <p className="form-error" role="alert">{quoteError}</p>}
-          {quote && <div className="billing-quote"><h3>{quote.description}</h3><QuoteDetails quote={quote} />{quote.tax_amount === null && <p className="billing-fine"><CircleAlert size={15} />Tax settings must be confirmed before paid checkout is available.</p>}{unavailable && <p className="billing-fine"><CircleAlert size={15} />{summary.capabilities.reason || 'Razorpay test checkout is being connected.'}</p>}<button type="button" className="button primary" disabled={busy || quote.buyer_total === null || unavailable} onClick={() => selection && startPayment(selection)}>{busy ? <LoaderCircle size={16} className="spin" /> : chargeable ? <CreditCard size={16} /> : <Check size={16} />}{busy ? 'Please wait…' : quote.payment_mode === 'direct' ? 'Record direct arrangement' : quote.pilot_waived ? 'Activate free pilot plan' : 'Continue to test checkout'}</button></div>}
+          {quote && selection && <div className="billing-quote"><BillSummary quote={quote} context={contextFor(selection, quote)} />{quote.tax_amount === null && <p className="billing-fine"><CircleAlert size={15} />Tax settings must be confirmed before paid checkout is available.</p>}{unavailable && <p className="billing-fine"><CircleAlert size={15} />{summary.capabilities.reason || 'Razorpay test checkout is being connected.'}</p>}<button type="button" className="button primary" disabled={busy || quote.buyer_total === null || unavailable} onClick={() => startPayment(selection)}>{busy ? <LoaderCircle size={16} className="spin" /> : chargeable ? <CreditCard size={16} /> : <Check size={16} />}{busy ? 'Please wait…' : quote.payment_mode === 'direct' ? 'Record direct arrangement' : quote.pilot_waived ? 'Activate free pilot plan' : quote.buyer_total === 0 ? 'Record free exchange' : 'Continue to test checkout'}</button></div>}
         </section>}
         {admin && <AdminBillingSettings key={`${summary.settings.tax_bps}-${summary.settings.business_pilot}`} summary={summary} onSaved={async () => { await refresh(); setError(''); setNotice('Billing settings saved. Existing statements keep their original pricing.'); }} />}
         <section className="billing-panel billing-history" aria-labelledby="billing-history-title">
@@ -195,24 +203,9 @@ export function Billing({ initialOrderId = '' }: { initialOrderId?: string }) {
       </div><aside className="billing-aside"><PricingGuide pilot={summary.settings.business_pilot} />{summary.entitlements.length > 0 && <section className="billing-panel"><header><div><h2>Test access</h2><p>Sandbox entitlements only</p></div><Sparkles size={20} /></header><ul className="billing-entitlements">{summary.entitlements.map(entitlement => <li key={entitlement.id}><strong>{entitlement.feature === 'listing_boost' ? 'Listing boost' : entitlement.feature === 'featured' ? 'Featured plan' : 'Growth plan'}</strong><small>Until {dateLabel(entitlement.expires_at)} IST</small></li>)}</ul><p className="billing-fine">These records do not activate real payouts or live promotional placement.</p></section>}</aside></div>
       {(error || notice) && <div className={error ? 'billing-page-feedback form-error' : 'billing-page-feedback billing-success'} role={error ? 'alert' : 'status'}>{error ? <CircleAlert size={18} /> : <Check size={18} />}{error || notice}</div>}
       {selectedRecord && <Modal title="Billing statement" onClose={() => setSelectedRecord(null)}>
-        <article className="billing-receipt">
-          <header><span>UniCirq</span><b>TEST MODE</b></header>
-          <p className="eyebrow">{purposeLabel(selectedRecord.purpose)}</p>
-          <h2>{relatedTitle(selectedRecord) ?? selectedRecord.quote.description}</h2>
-          <span className={`billing-state is-${selectedRecord.status}`}>{recordLabel(selectedRecord)}</span>
-          <dl className="billing-receipt-reference">
-            <div><dt>Statement reference</dt><dd>{selectedRecord.id}</dd></div>
-            {selectedRecord.purpose !== 'business_plan' && selectedRecord.reference_id && <div><dt>{selectedRecord.purpose === 'order' ? 'Exchange reference' : 'Listing reference'}</dt><dd>{selectedRecord.reference_id}</dd></div>}
-            <div><dt>Created</dt><dd>{dateLabel(selectedRecord.created_at)} IST</dd></div>
-            {selectedRecord.paid_at && <div><dt>Test capture confirmed</dt><dd>{dateLabel(selectedRecord.paid_at)} IST</dd></div>}
-            {selectedRecord.provider_payment_id && <div><dt>Provider test reference</dt><dd>{selectedRecord.provider_payment_id}</dd></div>}
-            {selectedRecord.refunded_amount > 0 && <div><dt>Refunded test amount</dt><dd>{moneyLabel(selectedRecord.refunded_amount)}</dd></div>}
-          </dl>
-          <QuoteDetails quote={selectedRecord.quote} />
-          <p className="billing-fine">{selectedRecord.payment_mode === 'direct' ? 'This records a direct arrangement. It does not prove payment, collection or settlement.' : selectedRecord.quote.pilot_waived ? 'Your business plan price is waived during the pilot. No payment was collected.' : 'Razorpay test transaction. No real money has moved and no seller payout has been made.'} This statement is not a GST tax invoice.</p>
-        </article>
+        <BillSummary quote={selectedRecord.quote} record={selectedRecord} context={contextFor(selectedRecord, selectedRecord.quote)} />
         <div className="billing-receipt-actions">
-          <button type="button" className="button secondary" onClick={() => window.print()}><Printer size={15} />Print statement</button>
+          <button type="button" className="button secondary" onClick={() => window.print()}><Printer size={15} />Print / save PDF</button>
           {!admin && selectedRecord.owner_id === data.user.id && ['quoted', 'pending'].includes(selectedRecord.status) && <button type="button" className="button primary" disabled={busy || !summary.capabilities.configured} onClick={() => {
             const record = selectedRecord; setSelectedRecord(null);
             startPayment({ billing_id: record.id });
