@@ -47,7 +47,7 @@ export interface BillingGroupQuote extends BillingQuote {
     listing_id: string;
     kind: Kind;
     amount: number;
-    terms_snapshot: Record<string, unknown>;
+    terms_snapshot: object;
   }>;
   delivery_amount: number;
 }
