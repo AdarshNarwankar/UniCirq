@@ -18,6 +18,9 @@ export const billingPolicy = Object.freeze({
   boost_days: 7,
 });
 
+export const billingUpiId = 'adarshnarwankar47@okhdfcbank';
+export const billingUpiPayeeName = 'UniCirq';
+
 export const billingPlans = Object.freeze([
   Object.freeze({ id: 'featured' as const, name: 'Featured', amount: 49900 }),
   Object.freeze({ id: 'growth' as const, name: 'Growth', amount: 99900 }),
