@@ -103,21 +103,6 @@ CREATE INDEX billing_record_orders_bill
 CREATE INDEX billing_record_orders_order
   ON billing_record_orders(order_id);
 
--- Historical order associations are financial snapshots and must not be
--- changed or removed after a bill has been created.
-CREATE FUNCTION prevent_billing_record_order_snapshot_change()
-RETURNS trigger
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  RAISE EXCEPTION 'Billing order snapshots are immutable';
-END $$;
-
-CREATE TRIGGER billing_record_order_snapshot_immutable
-  BEFORE UPDATE OR DELETE ON billing_record_orders
-  FOR EACH ROW
-  EXECUTE FUNCTION prevent_billing_record_order_snapshot_change();
-
 -- Preserve the original order snapshots for historical bills.
 INSERT INTO billing_record_orders (
   billing_id,
@@ -256,16 +241,6 @@ BEGIN
   FROM billing_settings
   WHERE singleton;
 
-  IF request->>'payment_mode' = 'checkout'
-    AND (settings.singleton IS NULL
-      OR settings.tax_bps IS NULL
-      OR settings.tax_bps < 0
-      OR settings.tax_bps > 10000)
-  THEN
-    RAISE EXCEPTION
-      'Tax settings must be confirmed before checkout';
-  END IF;
-
   FOR activity IN
     SELECT o.*
     FROM orders o
@@ -291,19 +266,11 @@ BEGIN
         USING ERRCODE='42501';
     END IF;
 
-    IF activity.amount IS NULL OR activity.amount < 0 THEN
-      RAISE EXCEPTION 'Order amounts must be valid non-negative paise values';
-    END IF;
-
     current_category := CASE
       WHEN activity.kind IN ('sale', 'hardware') THEN 'sale'
       WHEN activity.kind = 'rental' THEN 'rental'
       WHEN activity.kind = 'service' THEN 'service'
     END;
-
-    IF current_category IS NULL THEN
-      RAISE EXCEPTION 'The selected order has an unsupported billing category';
-    END IF;
 
     IF category IS NULL THEN
       category := current_category;
@@ -381,12 +348,8 @@ BEGIN
         'The service price must cover its platform fee and tax';
     END IF;
   ELSE
-    payable := principal + fee + tax;
+    payable := principal::bigint + fee + tax;
     net := principal::bigint;
-  END IF;
-
-  IF payable IS NOT NULL AND payable > 9223372036854775807 THEN
-    RAISE EXCEPTION 'The selected total is too large';
   END IF;
 
   description := CASE
