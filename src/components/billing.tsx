@@ -83,7 +83,7 @@ export function Billing({ initialOrderId = '' }: { initialOrderId?: string }) {
   const [purpose, setPurpose] = useState<'order' | 'boost' | 'business_plan'>(business ? 'business_plan' : 'order');
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>(initialOrderId ? [initialOrderId] : []), [listingId, setListingId] = useState(''), [mode, setMode] = useState<'direct' | 'checkout'>('direct'), [plan, setPlan] = useState<'featured' | 'growth'>('featured');
   const [quoted, setQuoted] = useState<{ quote: BillingQuote; key: string } | null>(null), [quoteLoading, setQuoteLoading] = useState(false), [quoteError, setQuoteError] = useState('');
-  const [selectedRecord, setSelectedRecord] = useState<BillingRecord | null>(null), [search, setSearch] = useState(''), [moreBusy, setMoreBusy] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<BillingRecord | null>(null), [manualUtr, setManualUtr] = useState(''), [search, setSearch] = useState(''), [moreBusy, setMoreBusy] = useState(false);
   const [upiQr, setUpiQr] = useState('');
   const eligibleOrders = data.orders.filter(order => order.buyer_id === data.user.id && order.status === 'accepted');
   const ownListings = data.listings.filter(listing => listing.owner_id === data.user.id && listing.status === 'active');
@@ -114,7 +114,7 @@ export function Billing({ initialOrderId = '' }: { initialOrderId?: string }) {
       const created = await billingRequest<{ record: BillingRecord; checkout?: Checkout }>('/api/billing', 'billing_id' in input ? { action: 'resume', billing_id: input.billing_id } : input.purpose === 'order_group' ? { action: 'group_create', selection: input } : { action: 'create', selection: input });
       if (!created.checkout) {
         await refresh(); setSelectedRecord(created.record);
-        setNotice(created.record.status === 'refunded' ? 'This test payment has been refunded. Review its statement for details.' : created.record.status === 'paid' ? 'This test payment is already confirmed.' : created.record.quote.pilot_waived ? 'Your free pilot plan has been recorded. No payment was taken.' : 'Direct arrangement recorded. UniCirq has not collected or verified any payment.');
+        setNotice(created.record.status === 'refunded' ? 'This payment has been refunded. Review its statement for details.' : created.record.status === 'paid' ? 'This payment is already confirmed.' : created.record.quote.pilot_waived ? 'Your free pilot plan has been recorded. No payment was taken.' : created.record.payment_mode === 'checkout' ? 'UPI payment request created. Pay the exact amount, then submit your UTR for manual verification.' : 'Direct arrangement recorded. UniCirq has not collected or verified any payment.');
         return;
       }
       await loadCheckout();
@@ -172,7 +172,7 @@ export function Billing({ initialOrderId = '' }: { initialOrderId?: string }) {
   }
   const records = summary?.records.filter(record => `${record.id} ${record.reference_id ?? ''} ${relatedTitle(record) ?? ''} ${record.quote.description} ${purposeLabel(record.purpose)} ${record.status}`.toLowerCase().includes(search.toLowerCase())) ?? [];
   const chargeable = quote && quote.payment_mode === 'checkout' && quote.buyer_total !== null && quote.buyer_total > 0;
-  const unavailable = Boolean(chargeable && !summary?.capabilities.configured);
+  const unavailable = false;
   const upiUri = quote?.buyer_total && quote.buyer_total > 0
     ? `upi://pay?pa=${encodeURIComponent(billingUpiId)}&pn=${encodeURIComponent(billingUpiPayeeName)}&am=${(quote.buyer_total / 100).toFixed(2)}&cu=INR`
     : '';
@@ -189,7 +189,7 @@ export function Billing({ initialOrderId = '' }: { initialOrderId?: string }) {
   }, [upiUri]);
 
   return <div className="billing-page"><header className="billing-heading"><div><span className="eyebrow">UNICIRQ · SIMPLE, TRANSPARENT CHARGES</span><h1>{admin ? 'Billing overview' : business ? 'Plans & billing' : 'Billing & receipts'}</h1><p>{admin ? 'Across all campuses. Review test transactions, platform charges and pilot settings.' : 'See every charge before you confirm. Keep your statements in one place.'}</p></div><button type="button" className="button secondary" disabled={loading || busy} onClick={() => setRequestKey(value => value + 1)}><RefreshCw size={15} />Refresh</button></header>
-    <div className="billing-test-note"><FlaskConical size={21} /><div><strong>Razorpay test mode</strong><p>No real money is charged or paid out. Test receipts do not confirm payment for a campus exchange.</p></div><span>TEST ONLY</span></div>
+    <div className="billing-test-note"><FlaskConical size={21} /><div><strong>UPI payment requires manual verification</strong><p>Pay the exact amount to the displayed UPI account, then submit the UTR. UniCirq confirms payment only after an administrator checks the account.</p></div><span>MANUAL REVIEW</span></div>
     {loading ? <div className="billing-loading" role="status"><LoaderCircle size={22} className="spin" />Loading billing details…</div> : loadError ? <div className="billing-panel billing-empty"><CircleAlert size={26} /><h2>Billing could not load</h2><p role="alert">{loadError}</p><button type="button" className="button secondary" onClick={() => setRequestKey(value => value + 1)}>Try again</button></div> : summary && <>
       <section className="billing-metrics" aria-label="Test billing totals">{[
         { title: 'Captured test value', value: summary.totals.gross, detail: 'Before refunds · includes principal', icon: CreditCard },
@@ -221,9 +221,32 @@ export function Billing({ initialOrderId = '' }: { initialOrderId?: string }) {
       {(error || notice) && <div className={error ? 'billing-page-feedback form-error' : 'billing-page-feedback billing-success'} role={error ? 'alert' : 'status'}>{error ? <CircleAlert size={18} /> : <Check size={18} />}{error || notice}</div>}
       {selectedRecord && <Modal title="Billing statement" onClose={() => setSelectedRecord(null)}>
         <BillSummary quote={selectedRecord.quote} record={selectedRecord} context={contextFor(selectedRecord, selectedRecord.quote)} />
+        {!admin && selectedRecord.owner_id === data.user.id && selectedRecord.payment_mode === 'checkout' && selectedRecord.status === 'quoted' && selectedRecord.quote.buyer_total !== null && <form className="billing-upi-form stack-form" onSubmit={async event => {
+          event.preventDefault(); if (busy) return; setBusy(true); setError(''); setNotice('');
+          try {
+            const result = await billingRequest<{ record: BillingRecord }>('/api/billing', { action: 'manual_submit', billing_id: selectedRecord.id, utr: manualUtr.trim() });
+            setSelectedRecord(result.record); setManualUtr(''); await refresh(); setNotice('UTR submitted. Payment is awaiting administrator verification; it is not confirmed yet.');
+          } catch (err) { setError(err instanceof Error ? err.message : 'UPI reference could not be submitted.'); } finally { setBusy(false); }
+        }}>
+          <label>UPI transaction ID / UTR<input required minLength={8} maxLength={40} pattern="[A-Za-z0-9]{8,40}" value={manualUtr} onChange={event => setManualUtr(event.target.value)} placeholder="Enter the UTR from your UPI app" /></label>
+          <p className="billing-fine">Submit only after paying {moneyLabel(selectedRecord.quote.buyer_total)} to {billingUpiId}. The payment stays pending until an administrator reconciles it.</p>
+          <button type="submit" className="button primary" disabled={busy || manualUtr.trim().length < 8}>{busy && <LoaderCircle size={15} className="spin" />}Submit UTR for verification</button>
+        </form>}
+        {admin && selectedRecord.status === 'manual_pending' && <form className="billing-upi-form stack-form" onSubmit={async event => {
+          event.preventDefault(); if (busy) return; setBusy(true); setError(''); setNotice('');
+          const form = new FormData(event.currentTarget); const decision = String(form.get('decision')) as 'approve' | 'reject'; const note = String(form.get('note') ?? '').trim();
+          try {
+            const result = await billingRequest<{ record: BillingRecord }>('/api/billing', { action: 'manual_review', billing_id: selectedRecord.id, decision, note });
+            setSelectedRecord(result.record); await refresh(); setNotice(decision === 'approve' ? 'UPI payment approved and recorded as paid.' : 'UPI payment rejected; the buyer can submit a corrected payment reference.');
+          } catch (err) { setError(err instanceof Error ? err.message : 'UPI review could not be saved.'); } finally { setBusy(false); }
+        }}>
+          <p className="billing-fine">Submitted UTR: <strong>{selectedRecord.manual_utr}</strong>. Verify the amount and account receipt before approving.</p>
+          <label>Review note<textarea name="note" required minLength={5} maxLength={500} rows={3} placeholder="Record the bank reconciliation result" /></label>
+          <div className="billing-receipt-actions"><button type="submit" name="decision" value="reject" className="button secondary" disabled={busy}>Reject</button><button type="submit" name="decision" value="approve" className="button primary" disabled={busy}>Approve payment</button></div>
+        </form>}
         <div className="billing-receipt-actions">
           <button type="button" className="button secondary" onClick={() => window.print()}><Printer size={15} />Print / save PDF</button>
-          {!admin && selectedRecord.owner_id === data.user.id && ['quoted', 'pending'].includes(selectedRecord.status) && <button type="button" className="button primary" disabled={busy || !summary.capabilities.configured} onClick={() => {
+          {!admin && selectedRecord.owner_id === data.user.id && ['quoted', 'pending'].includes(selectedRecord.status) && <button type="button" className="button primary" disabled={busy} onClick={() => {
             const record = selectedRecord; setSelectedRecord(null);
             startPayment({ billing_id: record.id });
           }}>Resume test checkout</button>}

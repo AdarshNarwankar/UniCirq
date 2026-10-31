@@ -29,7 +29,7 @@ export async function withBillingService<T>(operation: (client: PoolClient) => P
 
 export function billingCapabilities(): BillingSummary['capabilities'] {
   const configured = !demoEnabled() && Boolean(razorpayConfiguration(process.env));
-  return { mode: 'test', configured, reason: configured
+  return { mode: 'test', configured, manual_upi: true, reason: configured
     ? 'Razorpay test mode only. No real money, seller payout, deposit or insurance is provided.'
     : demoEnabled() ? 'Local sample billing. Connect Razorpay test credentials to try provider checkout.'
       : 'Razorpay test checkout needs its test key ID, private key secret and webhook secret. Free direct records and pilot plans remain available.' };
@@ -133,7 +133,11 @@ export async function createBillingGroup(actor: Profile, selection: BillingGroup
   const quote = await billingGroupQuote(actor, selection);
   const configuration = razorpayConfiguration(process.env);
   if (selection.payment_mode === 'checkout' && (quote.buyer_total ?? 0) > 0 && !configuration) {
-    throw new AppError(billingCapabilities().reason, 503);
+    const record = await withUser(actor.id, async client => (await client.query(
+      'SELECT app_billing_group_create($1::jsonb) AS record',
+      [JSON.stringify({ order_ids: selection.order_ids, payment_mode: selection.payment_mode })],
+    )).rows[0].record as BillingRecord);
+    return { record };
   }
   const record = await withUser(actor.id, async client => (await client.query(
     'SELECT app_billing_group_create($1::jsonb) AS record',
@@ -173,7 +177,10 @@ export async function createBilling(actor: Profile, selection: BillingSelection)
   // Do not create a payment obligation when the provider cannot be used. The
   // authoritative quote is recalculated inside the database creation function.
   const configuration = razorpayConfiguration(process.env);
-  if (selection.payment_mode === 'checkout' && (quote.buyer_total ?? 0) > 0 && !configuration) throw new AppError(billingCapabilities().reason, 503);
+  if (selection.payment_mode === 'checkout' && (quote.buyer_total ?? 0) > 0 && !configuration) {
+    const record = await withUser(actor.id, async client => (await client.query('SELECT app_billing_create($1::jsonb) AS record', [JSON.stringify(selection)])).rows[0].record as BillingRecord);
+    return { record };
+  }
   const record = await withUser(actor.id, async client => (await client.query('SELECT app_billing_create($1::jsonb) AS record', [JSON.stringify(selection)])).rows[0].record as BillingRecord);
   if (record.status === 'recorded' || record.status === 'paid' || record.status === 'refunded') return { record };
   if (!configuration) throw new AppError(billingCapabilities().reason, 503);
@@ -187,13 +194,13 @@ export async function resumeBilling(actor: Profile, billingId: string) {
     return { record };
   }
   const record = await ownedBillingRecord(actor, billingId);
-  if (['paid', 'refunded', 'recorded'].includes(record.status)) return { record };
+  if (['paid', 'refunded', 'recorded', 'manual_pending'].includes(record.status)) return { record };
   if (!actor.verified || actor.college_id !== record.college_id || actor.role !== (record.purpose === 'business_plan' ? 'business' : 'student')) {
     throw new AppError('Verified access for this billing record is required.', 403);
   }
   if (!record.provider_order_id && new Date(record.expires_at).getTime() < Date.now()) throw new AppError('This quote expired before checkout. Prepare a new quote.', 409);
   const configuration = razorpayConfiguration(process.env);
-  if (!configuration) throw new AppError(billingCapabilities().reason, 503);
+  if (!configuration) return { record };
   return prepareCheckout(record.id, actor.id, configuration);
 }
 
@@ -220,6 +227,17 @@ export async function ownedBillingRecord(actor: Profile, billingId: string): Pro
     if (!result.rows[0]) throw new AppError('Billing record not found.', 404);
     return result.rows[0];
   });
+}
+
+export async function submitManualUtr(actor: Profile, billingId: string, utr: string) {
+  if (demoEnabled()) throw new AppError('Manual UPI verification requires the connected production database.', 503);
+  return withUser(actor.id, async client => (await client.query('SELECT app_billing_manual_submit($1,$2) AS record', [billingId, utr])).rows[0].record as BillingRecord);
+}
+
+export async function reviewManualUtr(actor: Profile, billingId: string, decision: 'approve' | 'reject', note: string) {
+  if (actor.role !== 'admin') throw new AppError('Administrator access is required.', 403);
+  if (demoEnabled()) throw new AppError('Manual UPI verification requires the connected production database.', 503);
+  return withUser(actor.id, async client => (await client.query('SELECT app_billing_manual_review($1,$2,$3) AS record', [billingId, decision, note])).rows[0].record as BillingRecord);
 }
 
 export function billingFailure(error: unknown): AppError {
@@ -268,7 +286,8 @@ function demoCreate(actor: Profile, selection: BillingSelection, quote: BillingQ
   const now = new Date().toISOString();
   const record: BillingRecord = { id: crypto.randomUUID(), owner_id: actor.id, beneficiary_id: selection.purpose === 'order' ? demoState().orders.find(order => order.id === selection.reference_id)!.seller_id : null,
     college_id: actor.college_id!, purpose: selection.purpose, reference_id: selection.reference_id ?? null, plan: selection.plan ?? null, payment_mode: selection.payment_mode, quote,
-    status: 'recorded', provider_mode: 'test', provider_order_id: null, provider_payment_id: null, refunded_amount: 0, created_at: now, expires_at: new Date(Date.now() + 900_000).toISOString(), paid_at: null };
+    status: 'recorded', provider_mode: 'test', provider_order_id: null, provider_payment_id: null, refunded_amount: 0, created_at: now, expires_at: new Date(Date.now() + 900_000).toISOString(), paid_at: null,
+    manual_utr: null, manual_submitted_at: null, manual_reviewed_at: null, manual_reviewer_id: null, manual_review_note: null };
   store.records.unshift(record);
   if (selection.purpose === 'business_plan' && selection.plan && quote.pilot_waived) {
     const starts = new Date();
@@ -284,5 +303,5 @@ function demoCreate(actor: Profile, selection: BillingSelection, quote: BillingQ
 function demoBillingSummary(actor: Profile): BillingSummary {
   return { records: demoStore().records.filter(record => actor.role === 'admin' || record.owner_id === actor.id || record.beneficiary_id === actor.id),
     entitlements: demoStore().entitlements.filter(access => (actor.role === 'admin' || access.owner_id === actor.id) && new Date(access.expires_at).getTime() > Date.now()), settings: demoStore().settings,
-    capabilities: billingCapabilities(), totals: { gross: 0, platform_fees: 0, tax: 0, seller_payable: 0, refunded: 0 }, next_cursor: null };
+    capabilities: { ...billingCapabilities(), manual_upi: false }, totals: { gross: 0, platform_fees: 0, tax: 0, seller_payable: 0, refunded: 0 }, next_cursor: null };
 }

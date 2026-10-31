@@ -1,6 +1,6 @@
 # Billing pilot
 
-UniCirq billing follows the pricing table discussed in the UniCirq blueprint chat. This release supports **Razorpay test mode only**. Live API keys are rejected. No real money, escrow, insurance, seller payout, refundable deposit collection or automatic recurring debit is introduced.
+UniCirq billing follows the pricing table discussed in the UniCirq blueprint chat. Checkout supports a real UPI QR/manual-verification path using the configured UniCirq UPI account, plus optional Razorpay test mode. A UPI payment is real money, but it is sent to the displayed UniCirq account; this release does not automatically split or pay sellers.
 
 ## Published rules
 
@@ -23,13 +23,13 @@ The examples below exclude tax:
 - ₹400 rental: ₹32 fee, renter total ₹432, owner allocation ₹400.
 - ₹500 service: ₹40 fee, buyer total ₹500, provider allocation ₹460.
 
-Tax configuration starts **unconfirmed**, not silently zero. An administrator can confirm a platform-charge tax rate in **Admin → Billing → Billing settings**; an explicit zero rate is supported for sandbox testing. The configured rate applies to the platform charge only. Service fee tax is also deducted from the provider allocation. A paid checkout cannot start with an unconfirmed tax rate. This is a configurable pricing mechanism, not a determination of the applicable tax law. Test statements are not GST tax invoices.
+Tax configuration starts **unconfirmed**, not silently zero. An administrator can confirm a platform-charge tax rate in **Admin → Billing → Billing settings**; an explicit zero rate is supported for sandbox testing. The configured rate applies to the platform charge only. Service fee tax is also deducted from the provider allocation. A paid checkout cannot start with an unconfirmed tax rate. This is a configurable pricing mechanism, not a determination of the applicable tax law. Test statements and manually verified UPI statements are not GST tax invoices. A UPI transaction reference is retained for reconciliation and is not proof of payment until an administrator approves it.
 
 Business plans remain free while the pilot waiver is enabled. Plans renew manually for one calendar month; listing boosts last seven days. Test entitlements are stored separately and do not change live marketplace ranking, activate live promotion/reporting benefits or authorize real payouts. Storage and merchandise remain later-phase modules.
 
 ## Screens and API
 
-- `/student/billing`: accepted buyer exchanges, direct arrangement records, optional test checkout, own-listing boost previews, history and printable statements.
+- `/student/billing`: accepted buyer exchanges, direct arrangement records, UPI payment QR/manual verification, optional test checkout, own-listing boost previews, history and printable statements.
 - `/business/billing`: free pilot plan selection, monthly test plan quotes, history and test access periods.
 - `/admin/billing`: test financial allocations, records and audited pilot/tax configuration.
 
@@ -45,7 +45,7 @@ Each quote and saved statement has a bill summary with the related item/plan, ca
 {"action":"quote","selection":{"purpose":"order","reference_id":"ORDER_UUID","payment_mode":"checkout"}}
 ```
 
-Use `action:create` with the same selection to persist a server-priced statement and, when configured, prepare test checkout. Other selections are `purpose:boost` with an owned active listing reference, or `purpose:business_plan` with `plan:featured|growth` and no reference. Resume an existing attached checkout with `{"action":"resume","billing_id":"BILL_UUID"}` so the original quote is retained even if settings change. Only the owner can resume it.
+Use `action:create` with the same selection to persist a server-priced statement and prepare checkout. If Razorpay test credentials are unavailable, the buyer can pay the displayed UPI QR and submit `{"action":"manual_submit","billing_id":"BILL_UUID","utr":"UPI_TRANSACTION_REFERENCE"}`. Submission creates an awaiting-review record; it never marks the bill paid. An administrator must reconcile the bank transaction and submit `{"action":"manual_review","billing_id":"BILL_UUID","decision":"approve|reject","note":"RECONCILIATION_NOTE"}`. Resume an existing checkout with `{"action":"resume","billing_id":"BILL_UUID"}` so the original quote is retained. Only the owner can resume or submit a UTR; only an administrator can review it.
 
 `POST /api/billing/verify` verifies the browser's order/payment HMAC against the **stored provider order**, then fetches the payment server-side. The order, amount, INR currency and captured state must match. A browser success message alone cannot mark a statement paid. Authorization-only payments remain pending.
 

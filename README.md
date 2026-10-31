@@ -23,9 +23,9 @@ Open http://127.0.0.1:3000 and choose **Explore the student app**. Seller, Busin
 - Reviewed transaction requests, participant-specific confirmations, original request terms, timestamped activity history, rental overlap prevention, cancellation and disputes.
 - Campus/business verification applications, admin review, listing/deal moderation and audit history.
 - Campus business offers, support reports and managed-sale interest intake.
-- Student, Business and Admin billing screens with server-priced statements, Razorpay test checkout, signed payment/refund reconciliation, and free pilot business plans.
+- Student, Business and Admin billing screens with server-priced statements, UPI QR/manual payment verification, optional Razorpay test checkout, signed reconciliation, and free pilot business plans.
 
-Messages refresh periodically. Listing photos are normalized and stored with campus access controls. Billing uses test mode only; live payments, seller payouts, merchandise, storage and managed-sale operations remain follow-up work. Orders record participant-confirmed activity, without claiming escrow or payment protection.
+Messages refresh periodically. Listing photos are normalized and stored with campus access controls. UPI payments are real transfers to the configured UniCirq account and require admin reconciliation; automatic seller payouts, escrow, merchandise, storage and managed-sale operations remain follow-up work. Orders record participant-confirmed activity, without claiming escrow or payment protection.
 
 See [implementation plan, structure, data model and workflow](docs/IMPLEMENTATION.md) and [exchange workflow and validation](docs/EXCHANGE-FLOW.md).
 
@@ -33,7 +33,7 @@ See [PostgreSQL + Prisma setup and live readiness checks](docs/PRODUCTION-SETUP.
 
 See [login, signup, Google and university onboarding](docs/AUTHENTICATION.md). Proven `@dypiu.ac.in` mailboxes can connect to DYPIU automatically; other students choose their university and request campus verification.
 
-See [billing rules, Razorpay test setup and validation](docs/BILLING.md). Direct deals stay free; optional checkout applies the published 5% sale and 8% rental/service rates with a ₹19 minimum. Test boosts cost ₹29 for seven days, and business plans remain waived during the initial pilot. Tax must be explicitly configured before paid test checkout.
+See [billing rules, UPI/manual verification, Razorpay test setup and validation](docs/BILLING.md). Direct deals stay free; optional checkout applies the published 5% sale and 8% rental/service rates with a ₹19 minimum. Tax must be explicitly configured before paid checkout.
 
 ## Database setup
 
@@ -97,7 +97,7 @@ Verify exactly one expected account changed. Users cannot promote themselves thr
 
 Import as a Next.js project, install with `npm ci` and build with `npm run build`. Select Node.js 22+ and set the runtime variables above. Apply migrations separately before enabling traffic; do not migrate during each Vercel build. Configure `APP_URL` for the environment's canonical origin. Use separate test database/email settings for previews.
 
-Apply billing migration `013_billing.sql` and the restricted backend role grant before publishing billing code. The project already has hosted database/authentication configuration; new environments still need their own setup. A build succeeds without secrets, but sign-in and test checkout require their corresponding runtime configuration. This release deliberately rejects live Razorpay keys.
+Apply billing migrations through `015_manual_upi_billing.sql` and the restricted backend role grant before publishing billing code. The project already has hosted database/authentication configuration; new environments still need their own setup. A build succeeds without secrets; UPI checkout requires the migrated database and an administrator for reconciliation. Razorpay live keys remain rejected.
 
 ## Validation
 
