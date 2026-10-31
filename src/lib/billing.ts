@@ -4,7 +4,7 @@ import type { Kind } from './domain';
 export type BillingPurpose = 'order' | 'boost' | 'business_plan';
 export type BillingPaymentMode = 'direct' | 'checkout';
 export type BillingPlan = 'featured' | 'growth';
-export type BillingStatus = 'quoted' | 'pending' | 'paid' | 'recorded' | 'refunded';
+export type BillingStatus = 'quoted' | 'pending' | 'manual_pending' | 'paid' | 'recorded' | 'refunded';
 
 // All monetary values are integer paise. Gateway processing is included in the
 // published platform fee; deposits are not collected by this pilot integration.
@@ -97,13 +97,18 @@ export interface BillingRecord {
   payment_mode: BillingPaymentMode;
   quote: BillingQuote;
   status: BillingStatus;
-  provider_mode: 'test';
+  provider_mode: 'test' | 'upi_manual';
   provider_order_id: string | null;
   provider_payment_id: string | null;
   refunded_amount: number;
   created_at: string;
   expires_at: string;
   paid_at: string | null;
+  manual_utr: string | null;
+  manual_submitted_at: string | null;
+  manual_reviewed_at: string | null;
+  manual_reviewer_id: string | null;
+  manual_review_note: string | null;
 }
 
 export interface BillingEntitlement {
@@ -121,7 +126,7 @@ export interface BillingSummary {
   records: BillingRecord[];
   entitlements: BillingEntitlement[];
   settings: { tax_bps: number | null; business_pilot: boolean };
-  capabilities: { mode: 'test'; configured: boolean; reason: string };
+  capabilities: { mode: 'test'; configured: boolean; manual_upi: boolean; reason: string };
   totals: { gross: number; platform_fees: number; tax: number; seller_payable: number; refunded: number };
   next_cursor: string | null;
 }

@@ -54,6 +54,10 @@ export function billSummaryView(quote: BillingQuote, record?: PaymentRecord): Bi
   } else if (record?.status === 'pending' || record?.status === 'quoted') {
     status = record.status === 'pending' ? 'Awaiting test payment' : 'Not paid · test';
     tone = 'pending';
+  } else if (record?.status === 'manual_pending') {
+    status = 'UPI payment awaiting verification';
+    tone = 'pending';
+    note = 'UPI payment submitted. UniCirq will confirm it only after an administrator reconciles the transaction reference.';
   } else if (record?.status === 'recorded') {
     status = direct ? 'Payment not verified' : quote.pilot_waived ? 'Free pilot plan' : 'No payment required';
   }
