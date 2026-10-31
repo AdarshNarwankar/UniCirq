@@ -6,7 +6,7 @@ import { demoEnabled } from './config';
 import { demoState } from '../demo';
 import type { Profile } from '../domain';
 import { AppError } from '../policy';
-import type { BillingEntitlement, BillingRecord, BillingSelection, BillingSummary, BillingQuote } from '../billing';
+import type { BillingEntitlement, BillingRecord, BillingSelection, BillingSummary, BillingQuote, BillingGroupSelection, BillingGroupQuote } from '../billing';
 import { calculateBillingQuote } from '../billing';
 import { createRazorpayTestOrder, razorpayConfiguration, type RazorpayConfiguration } from '../razorpay';
 
@@ -82,6 +82,66 @@ export async function billingQuote(actor: Profile, selection: BillingSelection):
   const existing = await findExistingBilling(actor, selection);
   if (existing) return existing.quote;
   return withUser(actor.id, async client => (await client.query('SELECT app_billing_quote($1::jsonb) AS quote', [JSON.stringify(selection)])).rows[0].quote);
+}
+
+export async function billingGroupQuote(actor: Profile, selection: BillingGroupSelection): Promise<BillingGroupQuote> {
+  if (demoEnabled()) {
+    return demoGroupQuote(actor, selection);
+  }
+  return withUser(actor.id, async client => (await client.query(
+    'SELECT app_billing_group_quote($1::jsonb) AS quote',
+    [JSON.stringify({ order_ids: selection.order_ids, payment_mode: selection.payment_mode })],
+  )).rows[0].quote as BillingGroupQuote);
+}
+
+function demoGroupQuote(actor: Profile, selection: BillingGroupSelection): BillingGroupQuote {
+  const state = demoState();
+  if (actor.suspended || !actor.verified || !actor.college_id || actor.role !== 'student') throw new AppError('Verified campus access is required.', 403);
+  const orders = selection.order_ids.map(id => state.orders.find(order => order.id === id));
+  if (orders.some(order => !order || order.buyer_id !== actor.id || order.status !== 'accepted' || order.college_id !== actor.college_id)) {
+    throw new AppError('Choose your accepted exchanges.', 403);
+  }
+  const selected = orders.filter((order): order is NonNullable<typeof order> => Boolean(order));
+  const first = selected[0];
+  const category = first.kind === 'sale' || first.kind === 'hardware' ? 'sale' : first.kind;
+  if (selected.some(order => order.seller_id !== first.seller_id || (order.kind === 'sale' || order.kind === 'hardware' ? 'sale' : order.kind) !== category)) {
+    throw new AppError('A bill can contain orders from only one seller and one category.', 409);
+  }
+  const quote = calculateBillingQuote({ purpose: 'order', kind: first.kind, amount: selected.reduce((total, order) => total + order.amount, 0), payment_mode: selection.payment_mode, ...demoStore().settings });
+  return {
+    ...quote,
+    billing_category: category,
+    seller_id: first.seller_id,
+    college_id: first.college_id,
+    selection_key: selection.order_ids.slice().sort().join(','),
+    order_ids: selection.order_ids.slice().sort(),
+    items: selected.map(order => ({ order_id: order.id, listing_id: order.listing_id, kind: order.kind, amount: order.amount, terms_snapshot: order.terms_snapshot })),
+    delivery_amount: 0,
+  };
+}
+
+export async function createBillingGroup(actor: Profile, selection: BillingGroupSelection) {
+  if (demoEnabled()) {
+    const quote = demoGroupQuote(actor, selection);
+    if (quote.platform_fee > 0 && selection.payment_mode === 'checkout') throw new AppError(billingCapabilities().reason, 503);
+    const first = selection.order_ids[0];
+    const order = demoState().orders.find(item => item.id === first);
+    if (!order) throw new AppError('Choose an eligible exchange.', 409);
+    return { record: demoCreate(actor, { purpose: 'order', reference_id: first, payment_mode: selection.payment_mode }, quote) };
+  }
+
+  const quote = await billingGroupQuote(actor, selection);
+  const configuration = razorpayConfiguration(process.env);
+  if (selection.payment_mode === 'checkout' && (quote.buyer_total ?? 0) > 0 && !configuration) {
+    throw new AppError(billingCapabilities().reason, 503);
+  }
+  const record = await withUser(actor.id, async client => (await client.query(
+    'SELECT app_billing_group_create($1::jsonb) AS record',
+    [JSON.stringify({ order_ids: selection.order_ids, payment_mode: selection.payment_mode })],
+  )).rows[0].record as BillingRecord);
+  if (record.status === 'recorded' || record.status === 'paid' || record.status === 'refunded') return { record };
+  if (!configuration) throw new AppError(billingCapabilities().reason, 503);
+  return prepareCheckout(record.id, actor.id, configuration);
 }
 
 async function findExistingBilling(actor: Profile, selection: BillingSelection): Promise<BillingRecord | null> {

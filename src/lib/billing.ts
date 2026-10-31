@@ -18,6 +18,9 @@ export const billingPolicy = Object.freeze({
   boost_days: 7,
 });
 
+export const billingUpiId = 'adarshnarwankar47@okhdfcbank';
+export const billingUpiPayeeName = 'UniCirq';
+
 export const billingPlans = Object.freeze([
   Object.freeze({ id: 'featured' as const, name: 'Featured', amount: 49900 }),
   Object.freeze({ id: 'growth' as const, name: 'Growth', amount: 99900 }),
@@ -30,6 +33,28 @@ export interface BillingSelection {
   plan?: BillingPlan;
 }
 
+export interface BillingGroupSelection {
+  purpose: 'order_group';
+  order_ids: string[];
+  payment_mode: BillingPaymentMode;
+}
+
+export interface BillingGroupQuote extends BillingQuote {
+  billing_category: 'sale' | 'rental' | 'service';
+  seller_id: string;
+  college_id: string;
+  selection_key: string;
+  order_ids: string[];
+  items: Array<{
+    order_id: string;
+    listing_id: string;
+    kind: Kind;
+    amount: number;
+    terms_snapshot: object;
+  }>;
+  delivery_amount: number;
+}
+
 // Clients select an existing resource or plan; they never supply a charge,
 // deposit, tax rate, beneficiary, entitlement, or provider payment status.
 export const billingSelectionSchema = z.discriminatedUnion('purpose', [
@@ -37,6 +62,11 @@ export const billingSelectionSchema = z.discriminatedUnion('purpose', [
   z.strictObject({ purpose: z.literal('boost'), reference_id: z.string().uuid(), payment_mode: z.literal('checkout') }),
   z.strictObject({ purpose: z.literal('business_plan'), payment_mode: z.literal('checkout'), plan: z.enum(['featured', 'growth']) }),
 ]);
+export const billingGroupSelectionSchema = z.strictObject({
+  purpose: z.literal('order_group'),
+  order_ids: z.array(z.string().uuid()).min(1).max(20),
+  payment_mode: z.enum(['direct', 'checkout']),
+});
 
 export interface BillingQuote {
   policy_version: string;

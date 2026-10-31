@@ -1,13 +1,15 @@
 import { z } from 'zod';
-import { billingSelectionSchema } from '@/lib/billing';
+import { billingGroupSelectionSchema, billingSelectionSchema } from '@/lib/billing';
 import { requireApiUser } from '@/lib/server/auth';
 import { body, checkOrigin, failure, json } from '@/lib/server/http';
-import { billingFailure, billingQuote, billingSummary, configureBilling, createBilling, resumeBilling, limitBilling } from '@/lib/server/billing';
+import { billingFailure, billingGroupQuote, billingQuote, billingSummary, configureBilling, createBilling, createBillingGroup, resumeBilling, limitBilling } from '@/lib/server/billing';
 
 export const runtime = 'nodejs';
 const actionSchema = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('quote'), selection: billingSelectionSchema }),
+  z.strictObject({ action: z.literal('group_quote'), selection: billingGroupSelectionSchema }),
   z.strictObject({ action: z.literal('create'), selection: billingSelectionSchema }),
+  z.strictObject({ action: z.literal('group_create'), selection: billingGroupSelectionSchema }),
   z.strictObject({ action: z.literal('resume'), billing_id: z.string().uuid() }),
   z.strictObject({ action: z.literal('settings'), settings: z.strictObject({ tax_bps: z.number().int().min(0).max(10000).nullable(), business_pilot: z.boolean(), reason: z.string().trim().min(5).max(500) }) }),
 ]);
@@ -26,6 +28,8 @@ export async function POST(request: Request) {
     const input = actionSchema.parse(await body(request));
     if (input.action === 'settings') return json({ settings: await configureBilling(user, input.settings) });
     if (input.action === 'resume') return json(await resumeBilling(user, input.billing_id));
+    if (input.action === 'group_quote') return json({ quote: await billingGroupQuote(user, input.selection) });
+    if (input.action === 'group_create') return json(await createBillingGroup(user, input.selection));
     if (input.action === 'quote') return json({ quote: await billingQuote(user, input.selection) });
     return json(await createBilling(user, input.selection));
   } catch (error) {
