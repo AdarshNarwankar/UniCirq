@@ -8,6 +8,7 @@ import { Requests, Messages, Notifications, Deals, Support } from './community';
 import { Activity } from './activity';
 import { Selling } from './selling';
 import { Billing } from './billing';
+import { Cart } from './cart';
 import { Admin, BusinessOverview } from './operations';
 import type { Role } from '@/lib/domain';
 export function Module({ role, path = [], query = {} }: { role: Role; path?: string[]; query?: Record<string, string> }) {
@@ -16,6 +17,7 @@ export function Module({ role, path = [], query = {} }: { role: Role; path?: str
   if (page === 'settings') return <Settings />;
   if (page === 'notifications') return <Notifications />;
   if (page === 'billing') return <Billing initialOrderId={query.order} />;
+  if (page === 'cart') return <Cart />;
   if (role === 'admin') return <Admin view={page || 'overview'} />;
   if (page === 'support') return <Support />;
   if (page === 'deals') return <Deals />;
