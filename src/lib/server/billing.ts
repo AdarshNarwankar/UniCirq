@@ -98,8 +98,8 @@ function demoGroupQuote(actor: Profile, selection: BillingGroupSelection): Billi
   const state = demoState();
   if (actor.suspended || !actor.verified || !actor.college_id || actor.role !== 'student') throw new AppError('Verified campus access is required.', 403);
   const orders = selection.order_ids.map(id => state.orders.find(order => order.id === id));
-  if (orders.some(order => !order || order.buyer_id !== actor.id || order.status !== 'accepted' || order.college_id !== actor.college_id)) {
-    throw new AppError('Choose your accepted exchanges.', 403);
+  if (orders.some(order => !order || order.buyer_id !== actor.id || !(order.status === 'accepted' || (order.status === 'payment_pending' && ['sale', 'hardware'].includes(order.kind))) || order.college_id !== actor.college_id)) {
+    throw new AppError('Choose eligible purchases or accepted bookings.', 403);
   }
   const selected = orders.filter((order): order is NonNullable<typeof order> => Boolean(order));
   const first = selected[0];
@@ -268,7 +268,7 @@ function demoQuote(actor: Profile, selection: BillingSelection) {
   let amount: number | undefined, kind: typeof state.listings[number]['kind'] | undefined;
   if (selection.purpose === 'order') {
     const order = state.orders.find(item => item.id === selection.reference_id && item.buyer_id === actor.id && item.college_id === actor.college_id);
-    if (actor.role !== 'student' || !order || order.status !== 'accepted') throw new AppError('Choose your accepted exchange.', 403);
+    if (actor.role !== 'student' || !order || !(order.status === 'accepted' || (order.status === 'payment_pending' && ['sale', 'hardware'].includes(order.kind)))) throw new AppError('Choose an eligible purchase or accepted booking.', 403);
     amount = order.amount; kind = order.kind;
   } else if (selection.purpose === 'boost') {
     const listing = state.listings.find(item => item.id === selection.reference_id && item.owner_id === actor.id && item.college_id === actor.college_id && item.status === 'active');
