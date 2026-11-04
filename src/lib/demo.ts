@@ -39,6 +39,7 @@ export function applyCommand(state:State,actor:Profile,c:Command):{id?:string} {
  case 'create_order': {
   requireStudent(actor);const l=state.listings.find(l=>l.id===c.listing_id);visibleListing(actor,l);
   assert(l.status==='active','Listing is unavailable',409);assert(l.owner_id!==actor.id,'You cannot request your own listing');
+  if(['sale','hardware'].includes(l.kind))assert(!state.orders.some(o=>o.listing_id===l.id&&['payment_pending','accepted','handed_over','completed','disputed'].includes(o.status)),'This item is already reserved for another purchase',409);
   const owner=state.profiles.find(p=>p.id===l.owner_id);assert(owner?.verified&&!owner.suspended&&owner.role==='student','Seller is unavailable');
   assert(!state.orders.some(o=>o.listing_id===l.id&&o.buyer_id===actor.id&&!['cancelled','completed'].includes(o.status)),'You already have an active request',409);
   let amount=l.price;let billingUnits:number|undefined;let starts_on:string|null=null,ends_on:string|null=null,starts_at:string|null=null,ends_at:string|null=null;
