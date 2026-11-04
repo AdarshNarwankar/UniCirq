@@ -9,14 +9,14 @@ test('student cannot invoke moderation even with a valid target',()=>{const s=se
 test('campus isolation prevents reads and writes',()=>{const s=seedState(),p=s.profiles.find(p=>p.id===ids.outsider)!;assert.equal(snapshotFor(s,p).listings.length,0);assert.throws(()=>applyCommand(s,p,{type:'save_listing',listing_id:s.listings[0].id}),/campus/)});
 test('private conversations stay private even to unrelated admins',()=>{const s=seedState();for(const id of [ids.tutor,ids.admin]){const p=s.profiles.find(p=>p.id===id)!;assert.equal(snapshotFor(s,p).messages.length,0);assert.throws(()=>applyCommand(s,p,{type:'send_message',conversation_id:s.conversations[0].id,body:'Unauthorized message'}))}});
 test('order transitions reject wrong participant and invalid progression',()=>{const s=seedState(),o=s.orders[0];assert.throws(()=>applyCommand(s,s.profiles[1],{type:'transition_order',order_id:o.id,status:'handed_over'}));assert.throws(()=>applyCommand(s,s.profiles[0],{type:'transition_order',order_id:o.id,status:'completed'}));applyCommand(s,s.profiles[0],{type:'transition_order',order_id:o.id,status:'handed_over'});assert.throws(()=>applyCommand(s,s.profiles[0],{type:'transition_order',order_id:o.id,status:'completed'}));applyCommand(s,s.profiles[1],{type:'transition_order',order_id:o.id,status:'completed'});assert.equal(o.status,'completed')});
-test('duplicate purchases and overlapping rentals are rejected',()=>{const s=seedState(),p=s.profiles[0];applyCommand(s,p,{type:'create_order',listing_id:s.listings[0].id});assert.throws(()=>applyCommand(s,p,{type:'create_order',listing_id:s.listings[0].id}),/active request/);assert.throws(()=>applyCommand(s,s.profiles[2],{type:'create_order',listing_id:seedId(3,3),starts_on:s.orders.find(o=>o.kind==='rental')!.starts_on!,ends_on:s.orders.find(o=>o.kind==='rental')!.ends_on!}),/unavailable/)});
+test('duplicate purchases and overlapping rentals are rejected',()=>{const s=seedState(),p=s.profiles[0];applyCommand(s,p,{type:'create_order',listing_id:s.listings[0].id});assert.throws(()=>applyCommand(s,p,{type:'create_order',listing_id:s.listings[0].id}),/already reserved/);assert.throws(()=>applyCommand(s,s.profiles[2],{type:'create_order',listing_id:seedId(3,3),starts_on:s.orders.find(o=>o.kind==='rental')!.starts_on!,ends_on:s.orders.find(o=>o.kind==='rental')!.ends_on!}),/unavailable/)});
 test('profile payload cannot grant roles and invalid money is rejected',()=>{const safe=commandSchema.parse({type:'update_profile',name:'Student',bio:'',course:'',year:'',role:'admin',verified:true});assert.equal('role' in safe,false);assert.equal('verified' in safe,false);assert.equal(commandSchema.safeParse({...command,price:-1}).success,false);assert.equal(commandSchema.safeParse({...command,price:5.5}).success,false)});
 test('disputes require participant ownership',()=>{const s=seedState();assert.throws(()=>applyCommand(s,s.profiles[2],{type:'create_ticket',kind:'dispute',order_id:s.orders[0].id,subject:'False dispute',body:'Not a participant in this order.'}));applyCommand(s,s.profiles[0],{type:'create_ticket',kind:'dispute',order_id:s.orders[0].id,subject:'Condition mismatch',body:'The camera condition did not match the description.'});assert.equal(s.orders[0].status,'disputed')});
 test('moderation stores the actor and reason',()=>{const s=seedState();applyCommand(s,s.profiles.find(p=>p.id===ids.admin)!,{type:'moderate',entity:'listing',target_id:s.listings[0].id,decision:'remove',reason:'Prohibited item confirmed'});assert.equal(s.audit[0].actor_id,ids.admin);assert.equal(s.audit[0].reason,'Prohibited item confirmed')});
 test('a negative/invalid rental date is rejected by validation',()=>{assert.equal(commandSchema.safeParse({type:'create_order',listing_id:seedId(3,3),starts_on:'2026-02-30',ends_on:'2026-03-01'}).success,false)});
 
 test('demo activity preserves original terms and records participant events',()=>{
- const s=seedState(),buyer=s.profiles.find(p=>p.id===ids.student)!,seller=s.profiles.find(p=>p.id===ids.seller)!,l=s.listings[0];
+ const s=seedState(),buyer=s.profiles.find(p=>p.id===ids.student)!,seller=s.profiles.find(p=>p.id===ids.seller)!,l=s.listings[6];
  const result=applyCommand(s,buyer,{type:'create_order',listing_id:l.id}),order=s.orders.find(o=>o.id===result.id)!;
  const original=structuredClone(order.terms_snapshot);l.title='Changed after request';l.price=1;l.location='Changed location';
  assert.deepEqual(order.terms_snapshot,original);assert.equal(order.amount,original.price);assert.equal(original.protected,false);
@@ -50,7 +50,7 @@ test('demo activity chat creates only its exact participants and survives archiv
 
 test('demo notifications link directly to the affected activity or conversation',()=>{
  const s=seedState(),buyer=s.profiles.find(p=>p.id===ids.student)!,seller=s.profiles.find(p=>p.id===ids.seller)!;
- const result=applyCommand(s,buyer,{type:'create_order',listing_id:s.listings[0].id});assert.equal(s.notifications[0].href,'/student/activity?order='+result.id);
+ const result=applyCommand(s,buyer,{type:'create_order',listing_id:s.listings[6].id});assert.equal(s.notifications[0].href,'/student/activity?order='+result.id);
  applyCommand(s,seller,{type:'transition_order',order_id:result.id!,status:'accepted'});assert.equal(s.notifications[0].href,'/student/activity?order='+result.id);
  const cv=s.conversations[0];applyCommand(s,buyer,{type:'send_message',conversation_id:cv.id,body:'Can we meet by the library?'});assert.equal(s.notifications[0].href,'/student/messages?conversation='+cv.id);
 });
@@ -60,6 +60,6 @@ test('demo disputes append history and non-rental requests discard irrelevant da
  const result=applyCommand(s,buyer,{type:'create_order',listing_id:s.listings[0].id,starts_on:'2030-01-01',ends_on:'2030-01-02'}),order=s.orders.find(o=>o.id===result.id)!;
  assert.equal(order.starts_on,null);assert.equal(order.ends_on,null);
  applyCommand(s,buyer,{type:'create_ticket',kind:'dispute',order_id:order.id,subject:'Listing disagreement',body:'The condition differs from the original description.'});
- assert.deepEqual(s.orderEvents.filter(e=>e.order_id===order.id).map(e=>e.status),['requested','disputed']);
+ assert.deepEqual(s.orderEvents.filter(e=>e.order_id===order.id).map(e=>e.status),['payment_pending','disputed']);
  assert.equal(moneyLabel(1001),'₹10.01');assert.equal(moneyLabel(1000),'₹10');
 });
