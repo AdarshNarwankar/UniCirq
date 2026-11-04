@@ -385,11 +385,15 @@ BEGIN
        JOIN listings l ON l.id=o.listing_id WHERE bro.billing_id=bill.id AND o.kind IN('sale','hardware')
        AND (l.status<>'active' OR EXISTS(SELECT FROM orders other WHERE other.listing_id=o.listing_id AND other.id<>o.id AND other.status IN('accepted','handed_over','completed','disputed'))))
        THEN RAISE EXCEPTION 'A purchase listing is no longer available'; END IF;
-     UPDATE orders o SET status='accepted' FROM billing_record_orders bro
-       WHERE bro.billing_id=bill.id AND bro.order_id=o.id AND o.kind IN('sale','hardware') AND o.status='payment_pending';
+     WITH released AS (
+       UPDATE orders o SET status='accepted'
+       FROM billing_record_orders bro
+       WHERE bro.billing_id=bill.id AND bro.order_id=o.id
+         AND o.kind IN('sale','hardware') AND o.status='payment_pending'
+       RETURNING o.id
+     )
      INSERT INTO order_events(order_id,actor_id,status)
-       SELECT o.id,actor.id,'accepted' FROM orders o JOIN billing_record_orders bro ON bro.order_id=o.id
-       WHERE bro.billing_id=bill.id AND o.kind IN('sale','hardware');
+       SELECT id,actor.id,'accepted' FROM released;
      UPDATE listings l SET status='closed' FROM billing_record_orders bro JOIN orders o ON o.id=bro.order_id
        WHERE bro.billing_id=bill.id AND o.kind IN('sale','hardware') AND l.id=o.listing_id;
      INSERT INTO notifications(user_id,title,body,href)
