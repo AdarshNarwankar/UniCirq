@@ -104,7 +104,13 @@ BEGIN
    OR (next_status='handed_over' AND actor.id=activity.seller_id AND activity.status='accepted' AND activity.kind IN('sale','hardware'))
    OR (next_status='handed_over' AND actor.id=activity.buyer_id AND activity.status='accepted' AND activity.kind IN('rental','service'))
    OR (next_status='completed' AND activity.status='handed_over' AND ((activity.kind='rental' AND actor.id=activity.seller_id) OR (activity.kind<>'rental' AND actor.id=activity.buyer_id)))
-   OR (next_status='cancelled' AND activity.status IN('requested','accepted')),false) THEN RAISE EXCEPTION 'Invalid activity transition'; END IF;
+   OR (next_status='cancelled' AND (
+    (activity.kind NOT IN('sale','hardware') AND activity.status IN('requested','accepted'))
+    OR (activity.kind IN('sale','hardware') AND activity.status='payment_pending'
+      AND actor.id=activity.buyer_id
+      AND NOT EXISTS(SELECT FROM billing_record_orders bro WHERE bro.order_id=activity.id)
+    )
+   )),false) THEN RAISE EXCEPTION 'Invalid activity transition'; END IF;
   SELECT * INTO listing FROM listings WHERE id=activity.listing_id FOR UPDATE;
   IF next_status='accepted' THEN
    IF listing.status<>'active' THEN RAISE EXCEPTION 'Listing is no longer available'; END IF;
