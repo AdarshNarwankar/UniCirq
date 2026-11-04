@@ -49,6 +49,12 @@ BEGIN
   IF EXISTS(SELECT FROM orders WHERE listing_id=listing.id AND buyer_id=actor.id AND status NOT IN('cancelled','completed')) THEN
    RAISE EXCEPTION 'You already have an active request';
   END IF;
+  IF listing.kind IN('sale','hardware') AND EXISTS(
+    SELECT FROM orders WHERE listing_id=listing.id
+      AND status IN('payment_pending','accepted','handed_over','completed','disputed')
+  ) THEN
+    RAISE EXCEPTION 'This item is already reserved for another purchase';
+  END IF;
   IF listing.kind='rental' THEN
    IF listing.unit='hour' THEN
     IF NOT coalesce(command->>'starts_at' ~ instant_pattern,false) OR NOT coalesce(command->>'ends_at' ~ instant_pattern,false) THEN
