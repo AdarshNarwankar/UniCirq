@@ -38,6 +38,15 @@ test('manual UPI verification releases a direct purchase into seller fulfillment
  await asUser(ids.student,()=>db.query('SELECT app_billing_manual_submit($1::uuid,$2::text)',[bill.id,'UPIREF20261105001']));
  const pending=await db.query<{status:string}>('SELECT status FROM billing_records WHERE id=$1',[bill.id]);
  assert.equal(pending.rows[0].status,'manual_pending');
+ await asUser(ids.admin,()=>db.query("SELECT app_billing_manual_review($1::uuid,'reject',$2::text)",[bill.id,'Reference not found in settlement records']));
+ const rejected=await db.query<{status:string;manual_utr:string|null}>('SELECT status,manual_utr FROM billing_records WHERE id=$1',[bill.id]);
+ assert.equal(rejected.rows[0].status,'quoted');
+ assert.equal(rejected.rows[0].manual_utr,null);
+ const afterRejection=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[order.id]);
+ assert.equal(afterRejection.rows[0].status,'payment_pending');
+ const listingAfterRejection=await db.query<{status:string}>('SELECT status FROM listings WHERE id=$1',[listing.id]);
+ assert.equal(listingAfterRejection.rows[0].status,'active');
+ await asUser(ids.student,()=>db.query('SELECT app_billing_manual_submit($1::uuid,$2::text)',[bill.id,'UPIREF20261105002']));
  await asUser(ids.admin,()=>db.query("SELECT app_billing_manual_review($1::uuid,'approve',$2::text)",[bill.id,'Matched against bank settlement record']));
  const released=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[order.id]);
  assert.equal(released.rows[0].status,'accepted');
