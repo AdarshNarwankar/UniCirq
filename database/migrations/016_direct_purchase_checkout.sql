@@ -283,6 +283,12 @@ BEGIN
     RAISE EXCEPTION 'The selected total is too large';
   END IF;
 
+  IF category='sale' AND EXISTS (
+    SELECT FROM orders WHERE id=ANY(selected_ids) AND status='payment_pending'
+  ) AND request->>'payment_mode'<>'checkout' THEN
+    RAISE EXCEPTION 'Direct purchases require UPI checkout so payment can be verified before fulfillment';
+  END IF;
+
   IF request->>'payment_mode' = 'checkout' AND principal > 0 THEN
     rate_bps := CASE category
       WHEN 'sale' THEN 500
