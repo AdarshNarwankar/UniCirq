@@ -52,8 +52,10 @@ test('SQL retains original terms while activity notifications identify the exact
  const result=await asUser(ids.student,()=>db.query<{amount:number;terms_snapshot:{title:string;price:number;location:string;payment_mode:string;protected:boolean}}>('SELECT amount,terms_snapshot FROM orders WHERE id=$1',[activity.id]));
  assert.equal(result.rows[0].terms_snapshot.title,'Original desk lamp');assert.equal(result.rows[0].terms_snapshot.price,1001);assert.equal(result.rows[0].terms_snapshot.location,'Main library');assert.equal(Number(result.rows[0].amount),1001);assert.equal(result.rows[0].terms_snapshot.payment_mode,'direct');assert.equal(result.rows[0].terms_snapshot.protected,false);
  assert.equal((await asUser(ids.seller,()=>db.query('SELECT * FROM notifications WHERE href=$1',['/student/activity?order='+activity.id]))).rows.length,1);
- await command(ids.seller,{type:'transition_order',order_id:activity.id,status:'accepted'});
- assert.equal((await asUser(ids.student,()=>db.query('SELECT * FROM notifications WHERE href=$1',['/student/activity?order='+activity.id]))).rows.length,1);
+ const initial=await asUser(ids.student,()=>db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[activity.id]));
+ assert.equal(initial.rows[0].status,'payment_pending');
+ await assert.rejects(()=>command(ids.seller,{type:'transition_order',order_id:activity.id,status:'accepted'}),/Invalid activity transition/);
+ assert.equal((await asUser(ids.student,()=>db.query('SELECT * FROM notifications WHERE href=$1',['/student/activity?order='+activity.id]))).rows.length,0);
 });
 
 test('SQL archived conversation context remains readable only to existing participants',async()=>{
