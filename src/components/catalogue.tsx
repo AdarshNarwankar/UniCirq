@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Heart, MapPin, ShoppingBag, Clock3, Cpu, GraduationCap, Search, Plus, ShieldCheck } from 'lucide-react';
 import type { Listing, Kind } from '@/lib/domain';
 import { moneyLabel, categories } from '@/lib/domain';
