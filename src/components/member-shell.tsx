@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Bell, Clock3, Cpu, GraduationCap, Heart, HeartHandshake, LayoutDashboard, LifeBuoy, LogOut, MapPin, Megaphone, Menu, MessageCircle, Plus, ReceiptText, Settings, ShieldCheck, ShoppingBag, Store, Tag, UserRound, X, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Bell, Clock3, Cpu, GraduationCap, Heart, HeartHandshake, LayoutDashboard, LifeBuoy, LogOut, MapPin, Megaphone, Menu, MessageCircle, Plus, ReceiptText, Settings, ShieldCheck, ShoppingBag, ShoppingCart, Store, Tag, UserRound, X, type LucideIcon } from 'lucide-react';
 import { useApp } from './provider';
 import { ThemeToggle } from './theme';
 import { studentVerificationLabel } from '@/lib/campus-verification';
@@ -21,7 +21,7 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
   useEffect(() => { const escape = (e: KeyboardEvent) => { if (e.key === 'Escape' && menu) { setMenu(false); menuButton.current?.focus(); } }; window.addEventListener('keydown', escape); return () => window.removeEventListener('keydown', escape); }, [menu]);
   const groups: NavGroup[] = student ? [
     { title: 'DISCOVER', links: [
-      { path: 'buy', label: 'Buy', icon: ShoppingBag }, { path: 'rentals', label: 'Rentals', icon: Clock3 },
+      { path: 'buy', label: 'Buy', icon: ShoppingBag }, { path: 'cart', label: 'My cart', icon: ShoppingCart }, { path: 'rentals', label: 'Rentals', icon: Clock3 },
       { path: 'hardware', label: 'Project hardware', icon: Cpu }, { path: 'services', label: 'Services & tutors', icon: GraduationCap },
       { path: 'requests', label: 'Student requests', icon: Megaphone }, { path: 'deals', label: 'Campus deals', icon: Tag },
     ] },
@@ -61,6 +61,7 @@ export function MemberShell({ children }: { children: React.ReactNode }) {
       <button className="admin-menu" ref={menuButton} aria-label="Open navigation" aria-controls="member-navigation" aria-expanded={menu} onClick={() => setMenu(true)}><Menu size={21} /></button>
       <Link className="member-campus" href={`${base}/profile`}><MapPin size={16} /><span>{campus?.short_name ?? 'Verify campus'}</span></Link>
       <ThemeToggle />
+      {student && <Link className="admin-bell member-message-link" href="/student/cart" aria-label="Shopping cart"><ShoppingCart size={20}/></Link>}
       {student && <Link className="admin-bell member-message-link" href="/student/messages" aria-label="Messages"><MessageCircle size={20} /></Link>}
       <Link className="admin-bell" href={`${base}/notifications`} aria-label={`Notifications, ${unread} unread`}><Bell size={20} />{unread > 0 && <b>{unread}</b>}</Link>
       <Link className="admin-user" href={`${base}/profile`} aria-label="Your profile"><span className="avatar">{data.user.avatar}</span><span><strong>{data.user.name}</strong><small>{data.user.verified ? student ? studentVerificationLabel(data.user, campus, 'Verified student') : 'Verified business' : 'Verification pending'}</small></span></Link>
