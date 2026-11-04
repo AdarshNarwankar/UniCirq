@@ -18,9 +18,51 @@ test('SQL strips profile privilege fields by only updating permitted columns',as
 test('SQL rejects cross-campus saves and conversation injection',async()=>{await assert.rejects(()=>command(ids.outsider,{type:'save_listing',listing_id:seedId(3,1)}),/unavailable/);await assert.rejects(()=>command(ids.tutor,{type:'send_message',conversation_id:seedId(5,1),body:'Unauthorized'}),/private/)});
 test('SQL creates a listing with server-owned identity and saves it',async()=>{const r=await command(ids.student,{type:'create_listing',title:'A test multimeter',description:'Working multimeter with leads included.',kind:'hardware',category:'Project hardware',price:80000,unit:'item',condition:'Good',location:'Innovation lab',owner_id:ids.admin,college_id:ids.otherCampus});const row=await db.query<{owner_id:string;college_id:string}>('SELECT owner_id,college_id FROM listings WHERE id=$1',[r.id]);assert.equal(row.rows[0].owner_id,ids.student);assert.equal(row.rows[0].college_id,ids.campus);await command(ids.tutor,{type:'save_listing',listing_id:r.id});assert.equal((await asUser(ids.tutor,()=>db.query('SELECT * FROM saved_items'))).rows.length,1);assert.equal((await asUser(ids.student,()=>db.query('SELECT * FROM saved_items'))).rows.length,0)});
 test('conversation creation is idempotent and messaging notifies only recipient',async()=>{const a=await command(ids.student,{type:'start_conversation',listing_id:seedId(3,2)});const b=await command(ids.student,{type:'start_conversation',listing_id:seedId(3,2)});assert.equal(a.id,b.id);await command(ids.student,{type:'send_message',conversation_id:a.id,body:'Is the bicycle available?'});const n=await asUser(ids.tutor,()=>db.query('SELECT * FROM notifications'));assert.ok(n.rows.length>0)});
-test('rental overlaps and invalid transitions are rejected by SQL',async()=>{const s=seedState(),o=s.orders[0];await assert.rejects(()=>command(ids.tutor,{type:'create_order',listing_id:o.listing_id,starts_on:o.starts_on,ends_on:o.ends_on}),/reserved/);await assert.rejects(()=>command(ids.student,{type:'transition_order',order_id:o.id,status:'completed'}),/Invalid/);await assert.rejects(()=>command(ids.seller,{type:'transition_order',order_id:o.id,status:'handed_over'}),/Invalid/)});
+test('rental overlaps and invalid transitions are rejected by SQL',async()=>{const s=seedState(),o=s.orders[0];await db.query("UPDATE orders SET starts_on='2030-01-01',ends_on='2030-01-02' WHERE id=$1",[o.id]);await assert.rejects(()=>command(ids.tutor,{type:'create_order',listing_id:o.listing_id,starts_on:'2030-01-01',ends_on:'2030-01-02'}),/reserved/);await assert.rejects(()=>command(ids.student,{type:'transition_order',order_id:o.id,status:'completed'}),/Invalid/);await assert.rejects(()=>command(ids.seller,{type:'transition_order',order_id:o.id,status:'handed_over'}),/Invalid/)});
 test('valid rental handover and return append immutable events',async()=>{const id=seedId(7,1);await command(ids.student,{type:'transition_order',order_id:id,status:'handed_over'});await command(ids.seller,{type:'transition_order',order_id:id,status:'completed'});const rows=await asUser(ids.student,()=>db.query<{status:string}>('SELECT status FROM order_events WHERE order_id=$1 ORDER BY created_at',[id]));assert.deepEqual(rows.rows.map(r=>r.status),['requested','accepted','handed_over','completed'])});
-test('sale reservation is exclusive and terms are snapshotted',async()=>{const a=await command(ids.student,{type:'create_order',listing_id:seedId(3,1)});const b=await command(ids.tutor,{type:'create_order',listing_id:seedId(3,1)});await command(ids.seller,{type:'transition_order',order_id:a.id,status:'accepted'});await assert.rejects(()=>command(ids.seller,{type:'transition_order',order_id:b.id,status:'accepted'}),/reserves/);const rows=await db.query<{terms_snapshot:{protected:boolean;price:number}}>('SELECT terms_snapshot FROM orders WHERE id=$1',[a.id]);assert.equal(rows.rows[0].terms_snapshot.protected,false);assert.equal(rows.rows[0].terms_snapshot.price,850000)});
+test('direct purchase reserves a sale listing before payment and snapshots terms',async()=>{
+ const a=await command(ids.student,{type:'create_order',listing_id:seedId(3,1)});
+ const status=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[a.id]);
+ assert.equal(status.rows[0].status,'payment_pending');
+ await assert.rejects(()=>command(ids.tutor,{type:'create_order',listing_id:seedId(3,1)}),/already reserved/);
+ await assert.rejects(()=>command(ids.seller,{type:'transition_order',order_id:a.id,status:'accepted'}),/Invalid activity transition/);
+ const rows=await db.query<{terms_snapshot:{protected:boolean;price:number}}>('SELECT terms_snapshot FROM orders WHERE id=$1',[a.id]);
+ assert.equal(rows.rows[0].terms_snapshot.protected,false);
+ assert.equal(rows.rows[0].terms_snapshot.price,850000);
+});
+test('manual UPI verification releases a direct purchase into seller fulfillment',async()=>{
+ await db.query('UPDATE billing_settings SET tax_bps=0 WHERE singleton');
+ const listing=await command(ids.seller,{type:'create_listing',title:'Checkout test headphones',description:'A working pair of wired headphones.',kind:'sale',category:'Electronics',price:125000,unit:'item',condition:'Good',location:'Library'});
+ const order=await command(ids.student,{type:'create_order',listing_id:listing.id});
+ const bill=await asUser(ids.student,async()=>{const r=await db.query<{result:{id:string}}>('SELECT app_billing_group_create($1::jsonb) AS result',[JSON.stringify({order_ids:[order.id],payment_mode:'checkout'})]);return r.rows[0].result});
+ await asUser(ids.student,()=>db.query('SELECT app_billing_manual_submit($1::uuid,$2::text)',[bill.id,'UPIREF20261105001']));
+ const pending=await db.query<{status:string}>('SELECT status FROM billing_records WHERE id=$1',[bill.id]);
+ assert.equal(pending.rows[0].status,'manual_pending');
+ await asUser(ids.admin,()=>db.query("SELECT app_billing_manual_review($1::uuid,'reject',$2::text)",[bill.id,'Reference not found in settlement records']));
+ const rejected=await db.query<{status:string;manual_utr:string|null}>('SELECT status,manual_utr FROM billing_records WHERE id=$1',[bill.id]);
+ assert.equal(rejected.rows[0].status,'quoted');
+ assert.equal(rejected.rows[0].manual_utr,null);
+ const afterRejection=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[order.id]);
+ assert.equal(afterRejection.rows[0].status,'payment_pending');
+ const listingAfterRejection=await db.query<{status:string}>('SELECT status FROM listings WHERE id=$1',[listing.id]);
+ assert.equal(listingAfterRejection.rows[0].status,'active');
+ await asUser(ids.student,()=>db.query('SELECT app_billing_manual_submit($1::uuid,$2::text)',[bill.id,'UPIREF20261105002']));
+ await asUser(ids.admin,()=>db.query("SELECT app_billing_manual_review($1::uuid,'approve',$2::text)",[bill.id,'Matched against bank settlement record']));
+ const released=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[order.id]);
+ assert.equal(released.rows[0].status,'accepted');
+ await assert.rejects(()=>command(ids.student,{type:'transition_order',order_id:order.id,status:'cancelled'}),/Invalid activity transition/);
+ await assert.rejects(()=>command(ids.seller,{type:'transition_order',order_id:order.id,status:'cancelled'}),/Invalid activity transition/);
+ assert.equal(released.rows[0].status,'accepted');
+ const closed=await db.query<{status:string}>('SELECT status FROM listings WHERE id=$1',[listing.id]);
+ assert.equal(closed.rows[0].status,'closed');
+ assert.equal((await asUser(ids.seller,()=>db.query('SELECT * FROM notifications WHERE href=$1',['/student/activity?order='+order.id]))).rows.length,2);
+ await command(ids.seller,{type:'transition_order',order_id:order.id,status:'handed_over'});
+ await command(ids.student,{type:'transition_order',order_id:order.id,status:'completed'});
+ const completed=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[order.id]);
+ assert.equal(completed.rows[0].status,'completed');
+ const billStatus=await db.query<{status:string}>('SELECT status FROM billing_records WHERE id=$1',[bill.id]);
+ assert.equal(billStatus.rows[0].status,'paid');
+});
 test('dispute rejects outsiders and changes the participant order state',async()=>{const o=seedId(7,1);await assert.rejects(()=>command(ids.tutor,{type:'create_ticket',kind:'dispute',order_id:o,subject:'Not my order',body:'This should not be permitted.'}),/private/);await command(ids.student,{type:'create_ticket',kind:'dispute',order_id:o,subject:'Return disagreement',body:'Please review the return condition with us.'});const r=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[o]);assert.equal(r.rows[0].status,'disputed')});
 test('admin approval records an audit and notifies the applicant',async()=>{await command(ids.unverified,{type:'choose_university',college_id:ids.campus,name:'New Student'});const v=await command(ids.unverified,{type:'request_verification',kind:'campus',college_id:ids.campus,detail:'Enrollment independently confirmed with campus office.'});await command(ids.admin,{type:'moderate',entity:'verification',target_id:v.id,decision:'approve',reason:'Confirmed campus enrollment independently.',review_method:'campus_office',evidence_checked:true});const r=await db.query<{verified:boolean}>('SELECT verified FROM profiles WHERE id=$1',[ids.unverified]);assert.equal(r.rows[0].verified,true);const a=await asUser(ids.admin,()=>db.query('SELECT * FROM audit_logs'));assert.ok(a.rows.length>0);assert.equal((await asUser(ids.student,()=>db.query('SELECT * FROM audit_logs'))).rows.length,0)});
 test('business offer is hidden until moderation',async()=>{const d=await command(ids.business,{type:'create_deal',title:'A campus coffee offer',description:'Get a coffee discount with a campus profile.',code:'NEW20',expires_on:'2030-12-31'});const before=await asUser(ids.student,()=>db.query('SELECT * FROM deals WHERE id=$1',[d.id]));assert.equal(before.rows.length,0);await command(ids.admin,{type:'moderate',entity:'deal',target_id:d.id,decision:'approve',reason:'Business and offer terms checked.'});const after=await asUser(ids.student,()=>db.query('SELECT * FROM deals WHERE id=$1',[d.id]));assert.equal(after.rows.length,1)});
@@ -43,8 +85,10 @@ test('SQL retains original terms while activity notifications identify the exact
  const result=await asUser(ids.student,()=>db.query<{amount:number;terms_snapshot:{title:string;price:number;location:string;payment_mode:string;protected:boolean}}>('SELECT amount,terms_snapshot FROM orders WHERE id=$1',[activity.id]));
  assert.equal(result.rows[0].terms_snapshot.title,'Original desk lamp');assert.equal(result.rows[0].terms_snapshot.price,1001);assert.equal(result.rows[0].terms_snapshot.location,'Main library');assert.equal(Number(result.rows[0].amount),1001);assert.equal(result.rows[0].terms_snapshot.payment_mode,'direct');assert.equal(result.rows[0].terms_snapshot.protected,false);
  assert.equal((await asUser(ids.seller,()=>db.query('SELECT * FROM notifications WHERE href=$1',['/student/activity?order='+activity.id]))).rows.length,1);
- await command(ids.seller,{type:'transition_order',order_id:activity.id,status:'accepted'});
- assert.equal((await asUser(ids.student,()=>db.query('SELECT * FROM notifications WHERE href=$1',['/student/activity?order='+activity.id]))).rows.length,1);
+ const initial=await asUser(ids.student,()=>db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[activity.id]));
+ assert.equal(initial.rows[0].status,'payment_pending');
+ await assert.rejects(()=>command(ids.seller,{type:'transition_order',order_id:activity.id,status:'accepted'}),/Invalid activity transition/);
+ assert.equal((await asUser(ids.student,()=>db.query('SELECT * FROM notifications WHERE href=$1',['/student/activity?order='+activity.id]))).rows.length,0);
 });
 
 test('SQL archived conversation context remains readable only to existing participants',async()=>{
@@ -71,4 +115,13 @@ test('SQL order conversation validates participants and campus while supporting 
  assert.equal((await command(ids.student,{type:'start_conversation',listing_id:listing.id})).id,fromBuyer.id);
  await db.query('UPDATE profiles SET college_id=$1 WHERE id=$2',[ids.otherCampus,ids.student]);
  try{await assert.rejects(()=>command(ids.student,{type:'start_order_conversation',order_id:activity.id}),/private/)}finally{await db.query('UPDATE profiles SET college_id=$1 WHERE id=$2',[ids.campus,ids.student])}
+});
+
+test('unpaid direct purchase can only be cancelled by its buyer before a checkout bill exists',async()=>{
+ const listing=await command(ids.seller,{type:'create_listing',title:'Pre-checkout cancellation test item',description:'An item used to verify safe cancellation.',kind:'sale',category:'Electronics',price:50000,unit:'item',condition:'Good',location:'Library'});
+ const order=await command(ids.student,{type:'create_order',listing_id:listing.id});
+ await assert.rejects(()=>command(ids.seller,{type:'transition_order',order_id:order.id,status:'cancelled'}),/Invalid activity transition/);
+ await command(ids.student,{type:'transition_order',order_id:order.id,status:'cancelled'});
+ const result=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[order.id]);
+ assert.equal(result.rows[0].status,'cancelled');
 });

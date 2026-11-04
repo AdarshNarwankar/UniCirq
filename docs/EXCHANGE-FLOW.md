@@ -6,13 +6,13 @@ Implemented 30 September 2026. Matches the shared Student, Business and Admin de
 
 1. Create or discover a sale, rental, hardware or service listing.
 2. Use a private listing conversation to agree on the details.
-3. Review the listed price and terms before sending a request. Rentals offer hourly, daily, weekly or monthly pricing with a maximum duration of 30 days. Hourly requests include pickup and return times in IST; other rentals use dates. One week is 7 days and one month is 30 days. Partial pricing periods round up, and the exact quantity and total appear before confirmation. Service requests cover one listed pricing unit.
-4. The owner reviews and accepts or declines. Both participants can cancel before handover.
-5. The requester inspects and receives the item, or checks the service delivery, then confirms receipt.
-6. For a sale, hardware or service exchange, the requester confirms completion. For a rental, the owner inspects the returned item and confirms completion.
+3. For sale and project-hardware listings, place a purchase directly. The order enters `payment_pending` and reserves the listing immediately. The buyer completes UPI checkout and submits the transaction reference; an administrator verifies the payment before fulfillment. Rentals and services continue through a request workflow. Rentals offer hourly, daily, weekly or monthly pricing with a maximum duration of 30 days. Hourly requests include pickup and return times in IST; other rentals use dates. One week is 7 days and one month is 30 days. Partial pricing periods round up, and the exact quantity and total appear before confirmation. Service requests cover one listed pricing unit.
+4. For rentals and services, the owner reviews and accepts or declines. Both participants can cancel before handover.
+5. For a verified sale or hardware payment, the seller arranges the handover and marks the item as handed over. The buyer inspects it and confirms receipt to complete the purchase. For services, the requester checks the delivery and confirms receipt.
+6. For a rental, the owner inspects the returned item and confirms completion.
 
 Rental amounts and availability are calculated again by the backend using the listing's stored unit and rate. The order keeps its quoted billing quantity and original terms. Timestamp-based overlap checks cover both new hourly bookings and existing date-only rentals; adjacent bookings remain valid. Existing order amounts and dates are retained.
-7. Original request terms and participant confirmations stay available in activity. Completed sale and hardware listings close automatically. Existing conversations stay available after listing closure.
+7. Original request terms and participant confirmations stay available in activity. Sale and hardware listings are reserved when a purchase is created and close after payment verification. Completed rentals return to active availability. Existing conversations stay available after listing closure.
 
 Activity has search, status filters, a listing management tab and a detail view at `/student/activity?order=<id>`. Dashboard cards and notifications link directly to the affected record. Messages show the listing/request context and related activity, with a separate draft for each conversation.
 
@@ -37,3 +37,13 @@ Activity has search, status filters, a listing management tab and a detail view 
 ## Remaining production setup
 
 Hosted PostgreSQL, restricted runtime privileges and real email delivery still require staging configuration. Media uploads and provider payments remain modular follow-up work. Resolving a support ticket does not adjudicate a disputed order; the order stays paused pending a separate dispute resolution implementation. Pagination beyond the pilot remains a follow-up.
+
+
+## Direct purchase checkout (migration 016)
+
+- Sale and project-hardware purchases start in `payment_pending`; seller acceptance is not part of the purchase path.
+- A pending purchase reserves its listing against another buyer. Buyers must use checkout rather than the unverified direct-arrangement option.
+- Admin UPI approval atomically advances the purchase to the fulfillment state, records the event, closes the listing and notifies the seller. A failed validation rolls the approval transaction back.
+- The seller marks handover; the buyer confirms receipt and completion. Rentals and services retain their existing acceptance path.
+- Legacy accepted sale/hardware orders remain eligible for billing during the transition.
+- Apply migration 016 only after staging validation. Do not run it directly against production without a reviewed backup and tested rollback plan.
