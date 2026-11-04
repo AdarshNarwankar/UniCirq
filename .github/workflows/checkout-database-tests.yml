@@ -1,0 +1,40 @@
+name: Checkout database tests
+
+on:
+  push:
+    branches:
+      - feature/unicirq-checkout-ui
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "database/migrations/**"
+      - "tests/**"
+      - "src/lib/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/checkout-database-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  database-tests:
+    name: PostgreSQL migration and lifecycle tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run database integration tests
+        run: npm run test:db
