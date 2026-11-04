@@ -8,7 +8,7 @@ export function statusLabel(status: OrderStatus, kind?: Order['kind']) {
   if (status === 'payment_pending') return 'Awaiting UPI payment';
   if (status === 'accepted' && (kind === 'sale' || kind === 'hardware')) return 'Payment verified · Awaiting fulfillment';
   if (status === 'handed_over') return kind === 'service' ? 'Delivery confirmed' : 'Handover confirmed';
-  return { requested: 'Awaiting owner', accepted: 'Accepted', completed: 'Completed', cancelled: 'Cancelled', disputed: 'In dispute' }[status];
+  return status === 'requested' ? 'Awaiting owner' : status === 'accepted' ? 'Accepted' : status === 'completed' ? 'Completed' : status === 'cancelled' ? 'Cancelled' : status === 'disputed' ? 'In dispute' : 'Awaiting UPI payment';
 }
 export function nextStep(order: Order, userId: string) {
   const owner = order.seller_id === userId;
