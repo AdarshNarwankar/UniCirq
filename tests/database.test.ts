@@ -50,6 +50,9 @@ test('manual UPI verification releases a direct purchase into seller fulfillment
  await asUser(ids.admin,()=>db.query("SELECT app_billing_manual_review($1::uuid,'approve',$2::text)",[bill.id,'Matched against bank settlement record']));
  const released=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[order.id]);
  assert.equal(released.rows[0].status,'accepted');
+ await assert.rejects(()=>command(ids.student,{type:'transition_order',order_id:order.id,status:'cancelled'}),/Invalid activity transition/);
+ await assert.rejects(()=>command(ids.seller,{type:'transition_order',order_id:order.id,status:'cancelled'}),/Invalid activity transition/);
+ assert.equal(released.rows[0].status,'accepted');
  const closed=await db.query<{status:string}>('SELECT status FROM listings WHERE id=$1',[listing.id]);
  assert.equal(closed.rows[0].status,'closed');
  assert.equal((await asUser(ids.seller,()=>db.query('SELECT * FROM notifications WHERE href=$1',['/student/activity?order='+order.id]))).rows.length,2);
@@ -112,4 +115,13 @@ test('SQL order conversation validates participants and campus while supporting 
  assert.equal((await command(ids.student,{type:'start_conversation',listing_id:listing.id})).id,fromBuyer.id);
  await db.query('UPDATE profiles SET college_id=$1 WHERE id=$2',[ids.otherCampus,ids.student]);
  try{await assert.rejects(()=>command(ids.student,{type:'start_order_conversation',order_id:activity.id}),/private/)}finally{await db.query('UPDATE profiles SET college_id=$1 WHERE id=$2',[ids.campus,ids.student])}
+});
+
+test('unpaid direct purchase can only be cancelled by its buyer before a checkout bill exists',async()=>{
+ const listing=await command(ids.seller,{type:'create_listing',title:'Pre-checkout cancellation test item',description:'An item used to verify safe cancellation.',kind:'sale',category:'Electronics',price:50000,unit:'item',condition:'Good',location:'Library'});
+ const order=await command(ids.student,{type:'create_order',listing_id:listing.id});
+ await assert.rejects(()=>command(ids.seller,{type:'transition_order',order_id:order.id,status:'cancelled'}),/Invalid activity transition/);
+ await command(ids.student,{type:'transition_order',order_id:order.id,status:'cancelled'});
+ const result=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[order.id]);
+ assert.equal(result.rows[0].status,'cancelled');
 });
