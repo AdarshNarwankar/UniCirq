@@ -30,6 +30,27 @@ test('direct purchase reserves a sale listing before payment and snapshots terms
  assert.equal(rows.rows[0].terms_snapshot.protected,false);
  assert.equal(rows.rows[0].terms_snapshot.price,850000);
 });
+test('manual UPI verification releases a direct purchase into seller fulfillment',async()=>{
+ await db.query('UPDATE billing_settings SET tax_bps=0 WHERE singleton');
+ const listing=await command(ids.seller,{type:'create_listing',title:'Checkout test headphones',description:'A working pair of wired headphones.',kind:'sale',category:'Electronics',price:125000,unit:'item',condition:'Good',location:'Library'});
+ const order=await command(ids.student,{type:'create_order',listing_id:listing.id});
+ const bill=await asUser(ids.student,async()=>{const r=await db.query<{result:{id:string}}>('SELECT app_billing_group_create($1::jsonb) AS result',[JSON.stringify({order_ids:[order.id],payment_mode:'checkout'})]);return r.rows[0].result});
+ await asUser(ids.student,()=>db.query('SELECT app_billing_manual_submit($1::uuid,$2::text)',[bill.id,'UPIREF20261105001']));
+ const pending=await db.query<{status:string}>('SELECT status FROM billing_records WHERE id=$1',[bill.id]);
+ assert.equal(pending.rows[0].status,'manual_pending');
+ await asUser(ids.admin,()=>db.query("SELECT app_billing_manual_review($1::uuid,'approve',$2::text)",[bill.id,'Matched against bank settlement record']));
+ const released=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[order.id]);
+ assert.equal(released.rows[0].status,'accepted');
+ const closed=await db.query<{status:string}>('SELECT status FROM listings WHERE id=$1',[listing.id]);
+ assert.equal(closed.rows[0].status,'closed');
+ assert.equal((await asUser(ids.seller,()=>db.query('SELECT * FROM notifications WHERE href=$1',['/student/activity?order='+order.id]))).rows.length,2);
+ await command(ids.seller,{type:'transition_order',order_id:order.id,status:'handed_over'});
+ await command(ids.student,{type:'transition_order',order_id:order.id,status:'completed'});
+ const completed=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[order.id]);
+ assert.equal(completed.rows[0].status,'completed');
+ const billStatus=await db.query<{status:string}>('SELECT status FROM billing_records WHERE id=$1',[bill.id]);
+ assert.equal(billStatus.rows[0].status,'paid');
+});
 test('dispute rejects outsiders and changes the participant order state',async()=>{const o=seedId(7,1);await assert.rejects(()=>command(ids.tutor,{type:'create_ticket',kind:'dispute',order_id:o,subject:'Not my order',body:'This should not be permitted.'}),/private/);await command(ids.student,{type:'create_ticket',kind:'dispute',order_id:o,subject:'Return disagreement',body:'Please review the return condition with us.'});const r=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[o]);assert.equal(r.rows[0].status,'disputed')});
 test('admin approval records an audit and notifies the applicant',async()=>{await command(ids.unverified,{type:'choose_university',college_id:ids.campus,name:'New Student'});const v=await command(ids.unverified,{type:'request_verification',kind:'campus',college_id:ids.campus,detail:'Enrollment independently confirmed with campus office.'});await command(ids.admin,{type:'moderate',entity:'verification',target_id:v.id,decision:'approve',reason:'Confirmed campus enrollment independently.',review_method:'campus_office',evidence_checked:true});const r=await db.query<{verified:boolean}>('SELECT verified FROM profiles WHERE id=$1',[ids.unverified]);assert.equal(r.rows[0].verified,true);const a=await asUser(ids.admin,()=>db.query('SELECT * FROM audit_logs'));assert.ok(a.rows.length>0);assert.equal((await asUser(ids.student,()=>db.query('SELECT * FROM audit_logs'))).rows.length,0)});
 test('business offer is hidden until moderation',async()=>{const d=await command(ids.business,{type:'create_deal',title:'A campus coffee offer',description:'Get a coffee discount with a campus profile.',code:'NEW20',expires_on:'2030-12-31'});const before=await asUser(ids.student,()=>db.query('SELECT * FROM deals WHERE id=$1',[d.id]));assert.equal(before.rows.length,0);await command(ids.admin,{type:'moderate',entity:'deal',target_id:d.id,decision:'approve',reason:'Business and offer terms checked.'});const after=await asUser(ids.student,()=>db.query('SELECT * FROM deals WHERE id=$1',[d.id]));assert.equal(after.rows.length,1)});
