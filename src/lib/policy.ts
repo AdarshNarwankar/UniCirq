@@ -11,8 +11,10 @@ export function orderTransition(actor:Profile,order:Order,next:OrderStatus){
  requireStudent(actor); requireCampus(actor,order.college_id);
  assert(actor.id===order.buyer_id||actor.id===order.seller_id,'This activity is private.');
  const seller=actor.id===order.seller_id;
- const ok=(next==='accepted'&&seller&&order.status==='requested')||
-   (next==='handed_over'&&!seller&&order.status==='accepted')||
+ const directPurchase=['sale','hardware'].includes(order.kind);
+ const ok=(next==='accepted'&&seller&&order.status==='requested'&&!directPurchase)||
+   (next==='handed_over'&&seller&&order.status==='accepted'&&directPurchase)||
+   (next==='handed_over'&&!seller&&order.status==='accepted'&&!directPurchase)||
    (next==='completed'&&order.status==='handed_over'&&(order.kind==='rental'?seller:!seller))||
    (next==='cancelled'&&['requested','accepted'].includes(order.status));
  assert(ok,'This activity cannot move to that state.',409);
