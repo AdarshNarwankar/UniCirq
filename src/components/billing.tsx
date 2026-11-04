@@ -85,7 +85,7 @@ export function Billing({ initialOrderId = '' }: { initialOrderId?: string }) {
   const [quoted, setQuoted] = useState<{ quote: BillingQuote; key: string } | null>(null), [quoteLoading, setQuoteLoading] = useState(false), [quoteError, setQuoteError] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<BillingRecord | null>(null), [manualUtr, setManualUtr] = useState(''), [search, setSearch] = useState(''), [moreBusy, setMoreBusy] = useState(false);
   const [upiQr, setUpiQr] = useState(''), [recordUpiQr, setRecordUpiQr] = useState('');
-  const eligibleOrders = data.orders.filter(order => order.buyer_id === data.user.id && order.status === 'accepted');
+  const eligibleOrders = data.orders.filter(order => order.buyer_id === data.user.id && (order.status === 'accepted' || (order.status === 'payment_pending' && ['sale', 'hardware'].includes(order.kind))));
   const ownListings = data.listings.filter(listing => listing.owner_id === data.user.id && listing.status === 'active');
   const chosenOrderIds = selectedOrderIds.filter(id => eligibleOrders.some(order => order.id === id));
   const chosenListing = ownListings.find(listing => listing.id === listingId)?.id ?? ownListings[0]?.id;
