@@ -46,3 +46,90 @@
   .billing-receipt .bill-summary-item h4{font-size:14pt}.billing-receipt .bill-summary-total>strong{font-size:20pt}.billing-receipt .bill-summary-lines,.billing-receipt .bill-summary-reference{gap:8pt;margin:14pt 0}.billing-receipt .bill-summary-people{margin:14pt 0;padding-bottom:12pt}
   .billing-receipt .bill-summary-total,.billing-receipt .bill-summary-reference,.billing-receipt .bill-summary-people,.billing-receipt .bill-summary-refund{break-inside:avoid}.bill-summary-allocation summary{list-style:none}.bill-summary-footer p{font-size:8pt}
 }
+
+
+/* Checkout refinement: align billing surfaces with the warm-paper / jade workspace system. */
+html[data-theme] .billing-panel,
+html[data-theme] .bill-summary {
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+}
+html[data-theme] .billing-panel { background:var(--glass); }
+html[data-theme] .bill-summary { background:var(--surface); }
+html[data-theme] .billing-test-note {
+  border-radius:16px;
+  background:var(--surface-soft);
+}
+html[data-theme] .billing-plan-grid>button,
+html[data-theme] .billing-selection select,
+html[data-theme] .billing-search,
+html[data-theme] .billing-settings input:not([type=checkbox]),
+html[data-theme] .billing-settings textarea {
+  border-radius:13px;
+  background:var(--surface);
+}
+html[data-theme] .billing-plan-grid>button[aria-pressed=true] {
+  background:var(--pale);
+  border-color:var(--blue);
+}
+html[data-theme] .billing-record-icon,
+html[data-theme] .bill-summary-emblem {
+  border-radius:12px;
+  background:var(--pale);
+}
+html[data-theme] .billing-state { border-radius:999px; padding:5px 10px; }
+html[data-theme] .bill-summary { padding:26px; }
+html[data-theme] .bill-summary-total { border-radius:14px; }
+html[data-theme] .billing-upi {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:24px;
+  padding:22px;
+  margin-top:22px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:var(--surface-soft);
+}
+html[data-theme] .billing-upi>div { min-width:0; }
+html[data-theme] .billing-upi h3 { font-size:19px; letter-spacing:-.45px; margin:7px 0; }
+html[data-theme] .billing-upi p { color:var(--muted); font-size:12px; line-height:1.7; }
+html[data-theme] .billing-upi img {
+  display:block;
+  width:220px;
+  height:220px;
+  object-fit:contain;
+  padding:10px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:14px;
+}
+html[data-theme] .billing-upi-record { grid-template-columns:minmax(0,1fr) auto; }
+html[data-theme] .billing-upi-record img { width:240px; height:240px; }
+html[data-theme] .billing-upi-payee {
+  display:grid;
+  gap:3px;
+  margin:17px 0;
+  padding:13px 15px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--glass);
+}
+html[data-theme] .billing-upi-payee small { color:var(--muted); font-size:10px; }
+html[data-theme] .billing-upi-payee strong { color:var(--ink); font-size:14px; }
+html[data-theme] .billing-upi-payee span { color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+html[data-theme] .billing-qr-loading {
+  width:240px; height:240px; display:grid; place-content:center; justify-items:center;
+  gap:10px; color:var(--muted); background:var(--surface); border:1px dashed var(--line); border-radius:14px;
+  font-size:11px;
+}
+html[data-theme] .billing-upi-record-copy>.button { margin-top:3px; }
+@media(max-width:640px) {
+  html[data-theme] .bill-summary { padding:19px 15px; }
+  html[data-theme] .billing-upi,
+  html[data-theme] .billing-upi-record { grid-template-columns:1fr; justify-items:center; text-align:center; padding:18px 14px; gap:17px; }
+  html[data-theme] .billing-upi-record-copy { width:100%; }
+  html[data-theme] .billing-upi img,
+  html[data-theme] .billing-qr-loading { width:min(240px,100%); height:auto; aspect-ratio:1; }
+  html[data-theme] .billing-upi-payee { text-align:left; }
+}
