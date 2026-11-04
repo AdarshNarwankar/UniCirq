@@ -391,7 +391,7 @@ BEGIN
      PERFORM 1 FROM orders o JOIN billing_record_orders bro ON bro.order_id=o.id
      WHERE bro.billing_id=bill.id ORDER BY o.id FOR UPDATE OF o;
      IF EXISTS (SELECT FROM orders o JOIN billing_record_orders bro ON bro.order_id=o.id
-       WHERE bro.billing_id=bill.id AND o.status <> CASE WHEN o.kind IN('sale','hardware') THEN 'payment_pending' ELSE 'accepted' END)
+       WHERE bro.billing_id=bill.id AND NOT (o.status='accepted' OR (o.kind IN('sale','hardware') AND o.status='payment_pending')))
        THEN RAISE EXCEPTION 'One or more orders are no longer eligible for payment verification'; END IF;
      IF EXISTS (SELECT FROM orders o JOIN billing_record_orders bro ON bro.order_id=o.id
        JOIN listings l ON l.id=o.listing_id WHERE bro.billing_id=bill.id AND o.kind IN('sale','hardware')
