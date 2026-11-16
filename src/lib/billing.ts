@@ -18,8 +18,16 @@ export const billingPolicy = Object.freeze({
   boost_days: 7,
 });
 
-export const billingUpiId = 'adarshnarwankar47@okhdfcbank';
-export const billingUpiPayeeName = 'UniCirq';
+export interface ManualPayee { upi_id: string; name: string }
+export function manualPayeeConfiguration(env: Record<string, string | undefined>): ManualPayee | null {
+  const upi_id = env.UPI_ID?.trim() ?? '', name = env.UPI_PAYEE_NAME?.trim() ?? '';
+  if (!/^[A-Za-z0-9._-]{2,100}@[A-Za-z0-9.-]{2,64}$/.test(upi_id) || name.length < 2 || name.length > 100 || /[\r\n<>]/.test(name)) return null;
+  return { upi_id, name };
+}
+export function manualUpiUri(payee: ManualPayee, paise: number, reference: string): string {
+  if (!Number.isSafeInteger(paise) || paise <= 0 || !/^[A-Za-z0-9-]{1,50}$/.test(reference)) return '';
+  return 'upi://pay?' + new URLSearchParams({ pa: payee.upi_id, pn: payee.name, am: (paise / 100).toFixed(2), cu: 'INR', tr: reference }).toString();
+}
 
 export const billingPlans = Object.freeze([
   Object.freeze({ id: 'featured' as const, name: 'Featured', amount: 49900 }),
@@ -109,6 +117,8 @@ export interface BillingRecord {
   manual_reviewed_at: string | null;
   manual_reviewer_id: string | null;
   manual_review_note: string | null;
+  manual_upi_id?: string | null;
+  manual_payee_name?: string | null;
 }
 
 export interface BillingEntitlement {
@@ -126,7 +136,7 @@ export interface BillingSummary {
   records: BillingRecord[];
   entitlements: BillingEntitlement[];
   settings: { tax_bps: number | null; business_pilot: boolean };
-  capabilities: { mode: 'test'; configured: boolean; manual_upi: boolean; reason: string };
+  capabilities: { mode: 'test'; configured: boolean; manual_upi: boolean; reason: string; manual_payee?: ManualPayee | null };
   totals: { gross: number; platform_fees: number; tax: number; seller_payable: number; refunded: number };
   next_cursor: string | null;
 }

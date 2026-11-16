@@ -35,7 +35,18 @@ test('manual UPI verification releases a direct purchase into seller fulfillment
  const listing=await command(ids.seller,{type:'create_listing',title:'Checkout test headphones',description:'A working pair of wired headphones.',kind:'sale',category:'Electronics',price:125000,unit:'item',condition:'Good',location:'Library'});
  const order=await command(ids.student,{type:'create_order',listing_id:listing.id});
  const bill=await asUser(ids.student,async()=>{const r=await db.query<{result:{id:string}}>('SELECT app_billing_group_create($1::jsonb) AS result',[JSON.stringify({order_ids:[order.id],payment_mode:'checkout'})]);return r.rows[0].result});
+ await db.query('SELECT app_billing_prepare_manual($1,$2,$3,$4)',[bill.id,ids.student,'test-payee@bank','Test payee']);
+ await assert.rejects(()=>asUser(ids.student,()=>db.query('SELECT app_billing_prepare_manual($1,$2,$3,$4)',[bill.id,ids.student,'forged@bank','Forged payee'])),/permission denied/);
+ await db.query('SELECT app_billing_prepare_manual($1,$2,$3,$4)',[bill.id,ids.student,'new-payee@bank','Changed configuration']);
+ const frozen=await db.query<{manual_upi_id:string;manual_payee_name:string}>('SELECT manual_upi_id,manual_payee_name FROM billing_records WHERE id=$1',[bill.id]);
+ assert.equal(frozen.rows[0].manual_upi_id,'test-payee@bank'); assert.equal(frozen.rows[0].manual_payee_name,'Test payee');
+ await assert.rejects(()=>asUser(ids.tutor,()=>db.query('SELECT app_billing_manual_submit($1,$2)',[bill.id,'UPIREF20261105001'])),/cannot accept/);
  await asUser(ids.student,()=>db.query('SELECT app_billing_manual_submit($1::uuid,$2::text)',[bill.id,'UPIREF20261105001']));
+ await asUser(ids.student,()=>db.query('SELECT app_billing_manual_submit($1,$2)',[bill.id,'upiref20261105001']));
+ await assert.rejects(()=>asUser(ids.student,()=>db.query('SELECT app_billing_manual_review($1,$2,$3)',[bill.id,'approve','Cannot self-approve this receipt'])),/Admin access/);
+ await assert.rejects(()=>asUser(ids.admin,()=>db.query('SELECT app_billing_manual_review($1,NULL,$2)',[bill.id,'Missing decision must be rejected'])),/Choose a decision/);
+ const notReleased=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[order.id]); assert.equal(notReleased.rows[0].status,'payment_pending');
+
  const pending=await db.query<{status:string}>('SELECT status FROM billing_records WHERE id=$1',[bill.id]);
  assert.equal(pending.rows[0].status,'manual_pending');
  await asUser(ids.admin,()=>db.query("SELECT app_billing_manual_review($1::uuid,'reject',$2::text)",[bill.id,'Reference not found in settlement records']));
@@ -46,7 +57,17 @@ test('manual UPI verification releases a direct purchase into seller fulfillment
  assert.equal(afterRejection.rows[0].status,'payment_pending');
  const listingAfterRejection=await db.query<{status:string}>('SELECT status FROM listings WHERE id=$1',[listing.id]);
  assert.equal(listingAfterRejection.rows[0].status,'active');
+ const secondListing=await command(ids.seller,{type:'create_listing',title:'Another checkout item',description:'A second item for independent checkout.',kind:'sale',category:'Electronics',price:125000,unit:'item',condition:'Good',location:'Library'});
+ const secondOrder=await command(ids.student,{type:'create_order',listing_id:secondListing.id});
+ const secondBill=await asUser(ids.student,async()=>{const r=await db.query<{result:{id:string}}>('SELECT app_billing_group_create($1::jsonb) AS result',[JSON.stringify({order_ids:[secondOrder.id],payment_mode:'checkout'})]);return r.rows[0].result});
+ await db.query('SELECT app_billing_prepare_manual($1,$2,$3,$4)',[secondBill.id,ids.student,'test-payee@bank','Test payee']);
+ await assert.rejects(()=>asUser(ids.student,()=>db.query('SELECT app_billing_manual_submit($1,$2)',[secondBill.id,'UPIREF20261105001'])),/already linked/);
+ await assert.rejects(()=>asUser(ids.admin,()=>db.query('SELECT * FROM billing_manual_references')),/permission denied/);
  await asUser(ids.student,()=>db.query('SELECT app_billing_manual_submit($1::uuid,$2::text)',[bill.id,'UPIREF20261105002']));
+ await db.query("UPDATE profiles SET role='admin' WHERE id=$1",[ids.student]);
+ await assert.rejects(()=>asUser(ids.student,()=>db.query('SELECT app_billing_manual_review($1,$2,$3)',[bill.id,'approve','Self approval is never permitted'])),/cannot approve/);
+ await db.query("UPDATE profiles SET role='student' WHERE id=$1",[ids.student]);
+
  await asUser(ids.admin,()=>db.query("SELECT app_billing_manual_review($1::uuid,'approve',$2::text)",[bill.id,'Matched against bank settlement record']));
  const released=await db.query<{status:string}>('SELECT status FROM orders WHERE id=$1',[order.id]);
  assert.equal(released.rows[0].status,'accepted');

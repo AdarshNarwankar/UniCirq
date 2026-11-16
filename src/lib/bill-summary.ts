@@ -1,7 +1,7 @@
 import type { BillingQuote, BillingRecord } from './billing';
 
 export interface BillLine { id: string; label: string; amount: number | null; note?: string }
-type PaymentRecord = Pick<BillingRecord, 'status' | 'payment_mode' | 'refunded_amount'>;
+type PaymentRecord = Pick<BillingRecord, 'status' | 'payment_mode' | 'refunded_amount'> & { provider_mode?: BillingRecord['provider_mode'] };
 export interface BillSummaryView {
   lines: BillLine[];
   allocation: BillLine[];
@@ -16,6 +16,7 @@ export interface BillSummaryView {
 
 /** Display the persisted quote without recalculating its historical prices. */
 export function billSummaryView(quote: BillingQuote, record?: PaymentRecord): BillSummaryView {
+  const manual = record?.provider_mode === 'upi_manual';
   const direct = quote.payment_mode === 'direct';
   const providerDeduction = quote.purpose === 'order' && quote.fee_payer === 'provider';
   const taxLabel = quote.tax_bps === null ? 'Tax on UniCirq charge' : `Tax on UniCirq charge (${quote.tax_bps / 100}%)`;
@@ -38,21 +39,23 @@ export function billSummaryView(quote: BillingQuote, record?: PaymentRecord): Bi
   ] : [];
 
   let totalLabel = direct ? 'Agreed direct amount' : quote.buyer_total === 0 ? 'Total due' : 'Total payable';
-  let status = direct ? 'Arrange directly' : quote.buyer_total === 0 ? 'No payment required' : quote.buyer_total === null ? 'Tax setup pending' : 'Ready for test checkout';
+  let status = direct ? 'Arrange directly' : quote.buyer_total === 0 ? 'No payment required' : quote.buyer_total === null ? 'Tax setup pending' : 'Ready for checkout';
   let tone: BillSummaryView['tone'] = 'neutral';
   let note = direct ? 'Payment is arranged directly between participants. UniCirq has not collected or verified it.'
     : quote.pilot_waived ? 'Your pilot plan is free. No payment or automatic renewal is required.'
       : quote.buyer_total === 0 ? 'This statement has no charge. No payment was collected.'
-        : 'Razorpay test mode only. No real money is charged, settled or paid out.';
+        : 'Review all charges before creating your payment request. Payment confirmation and seller payout are separate steps.';
   let refund: BillSummaryView['refund'] = null;
   if (record?.status === 'paid' || record?.status === 'refunded') {
-    totalLabel = 'Original test total';
+    totalLabel = manual ? 'Original payment total' : 'Original test total';
     status = record.refunded_amount > 0 ? record.status === 'refunded' ? 'Fully refunded · test' : 'Partially refunded · test' : 'Payment captured · test';
+    if (manual) { status = record.refunded_amount > 0 ? 'Manually reconciled refund' : 'UPI payment confirmed by administrator'; note = 'The receiving account was checked manually. Seller payout is handled separately.'; }
     tone = record.refunded_amount > 0 ? 'neutral' : 'confirmed';
     // Only a confirmed captured record represents funds, even in a sandbox.
     if (quote.buyer_total !== null) refund = { captured: quote.buyer_total, refunded: record.refunded_amount, remaining: quote.buyer_total - record.refunded_amount };
   } else if (record?.status === 'pending' || record?.status === 'quoted') {
-    status = record.status === 'pending' ? 'Awaiting test payment' : 'Not paid · test';
+    status = manual ? 'Awaiting UPI payment' : record.status === 'pending' ? 'Awaiting test payment' : 'Not paid · test';
+    if (manual) note = 'Pay the receiving account shown on this statement, then submit the transaction ID for administrator review.';
     tone = 'pending';
   } else if (record?.status === 'manual_pending') {
     status = 'UPI payment awaiting verification';

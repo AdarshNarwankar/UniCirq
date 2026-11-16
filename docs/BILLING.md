@@ -1,6 +1,6 @@
 # Billing pilot
 
-UniCirq billing follows the pricing table discussed in the UniCirq blueprint chat. Checkout supports a real UPI QR/manual-verification path using the configured UniCirq UPI account, plus optional Razorpay test mode. A UPI payment is real money, but it is sent to the displayed UniCirq account; this release does not automatically split or pay sellers.
+UniCirq billing uses the platform charges below. Checkout supports a real UPI QR/manual-verification path using the configured UniCirq UPI account, plus optional Razorpay test mode. A UPI payment is real money, but it is sent to the displayed UniCirq account; this release does not automatically split or pay sellers.
 
 ## Published rules
 
@@ -8,7 +8,7 @@ UniCirq billing follows the pricing table discussed in the UniCirq blueprint cha
 | --- | --- | --- |
 | Registration, verification, standard listings, requests and chat | Free | Nobody |
 | Direct campus exchange | 0% | Nobody; payment is arranged directly |
-| Optional sale / hardware checkout | 5%, minimum ₹19 | Buyer |
+| Sale / hardware purchase checkout | 5%, minimum ₹19 | Buyer |
 | Rental checkout | 8%, minimum ₹19 | Renter |
 | Service checkout | 8%, minimum ₹19 | Deducted from the provider's share |
 | Listing boost | ₹29 / 7 days | Listing owner |
@@ -27,11 +27,23 @@ Tax configuration starts **unconfirmed**, not silently zero. An administrator ca
 
 Business plans remain free while the pilot waiver is enabled. Plans renew manually for one calendar month; listing boosts last seven days. Test entitlements are stored separately and do not change live marketplace ranking, activate live promotion/reporting benefits or authorize real payouts. Storage and merchandise remain later-phase modules.
 
+## Manual UPI configuration and review
+
+Set `UPI_ID` and `UPI_PAYEE_NAME` in the server's private runtime environment. The name must exactly match the recipient shown by the UPI app. Missing or invalid receiving details disable manual checkout. Keep `billing_settings.tax_bps` NULL until the owner confirms the applicable rate; never substitute a test rate in production.
+
+Creating a manual order payment saves the quote, receiving UPI ID and payee name before showing a QR or UPI app link. Later configuration changes do not change that saved request. The QR contains the exact INR amount and statement ID. No scannable payment QR is displayed on a quote preview.
+
+Buyers submit their transaction ID after paying. It is normalized to uppercase and reserved in a private reference ledger. Retries on the same payment are idempotent, and the ID cannot be used for another bill, including after rejection. Submission leaves the order awaiting payment verification. Admins receive a notification and review it in `/admin/billing`; they must check the recipient, amount and reference in the actual receiving bank account, tick the receipt check and enter a review note. An administrator cannot approve a bill they participate in. Approval records the reviewer, time and note, releases purchase orders for fulfillment and notifies participants. Rejection records the reason and lets the buyer submit a corrected reference. A transaction ID by itself is never accepted as proof of receipt.
+
+Cart checkout operates per seller and passes the resulting purchases to billing as one group. Tax and account configuration are checked before creating cart purchases. A partial failure leaves already-created orders in Orders & activity; retrying reuses those pending purchases.
+
+UniCirq receives the whole UPI amount. Seller allocations are accounting information, not completed payouts; seller transfers and any refunds require separate operator reconciliation. Paid boosts and paid business promotions remain unavailable on the real UPI path because their benefits are still sandbox-only. Free pilot business plans remain available.
+
 ## Screens and API
 
 - `/student/billing`: accepted buyer exchanges, direct arrangement records, UPI payment QR/manual verification, optional test checkout, own-listing boost previews, history and printable statements.
 - `/business/billing`: free pilot plan selection, monthly test plan quotes, history and test access periods.
-- `/admin/billing`: test financial allocations, records and audited pilot/tax configuration.
+- `/admin/billing`: manual payment review, financial allocations, records and audited pilot/tax configuration.
 
 These pages retain the app's server role guards. Billing is fetched separately from general dashboard snapshots, with cursor pagination and a persistent per-user admission limit.
 
@@ -45,17 +57,17 @@ Each quote and saved statement has a bill summary with the related item/plan, ca
 {"action":"quote","selection":{"purpose":"order","reference_id":"ORDER_UUID","payment_mode":"checkout"}}
 ```
 
-Use `action:create` with the same selection to persist a server-priced statement and prepare checkout. If Razorpay test credentials are unavailable, the buyer can pay the displayed UPI QR and submit `{"action":"manual_submit","billing_id":"BILL_UUID","utr":"UPI_TRANSACTION_REFERENCE"}`. Submission creates an awaiting-review record; it never marks the bill paid. An administrator must reconcile the bank transaction and submit `{"action":"manual_review","billing_id":"BILL_UUID","decision":"approve|reject","note":"RECONCILIATION_NOTE"}`. Resume an existing checkout with `{"action":"resume","billing_id":"BILL_UUID"}` so the original quote is retained. Only the owner can resume or submit a UTR; only an administrator can review it.
+Use `action:create` with the same selection to persist a server-priced statement and prepare checkout. If Razorpay test credentials are unavailable, the buyer can pay the displayed UPI QR and submit `{"action":"manual_submit","billing_id":"BILL_UUID","utr":"UPI_TRANSACTION_REFERENCE"}`. Submission creates an awaiting-review record; it never marks the bill paid. An administrator must reconcile the bank transaction and submit `{"action":"manual_review","billing_id":"BILL_UUID","decision":"approve|reject","note":"RECONCILIATION_NOTE","receipt_checked":true}`. Resume an existing checkout with `{"action":"resume","billing_id":"BILL_UUID"}` so the original quote is retained. Only the owner can resume or submit a UTR; only an administrator can review it.
 
 `POST /api/billing/verify` verifies the browser's order/payment HMAC against the **stored provider order**, then fetches the payment server-side. The order, amount, INR currency and captured state must match. A browser success message alone cannot mark a statement paid. Authorization-only payments remain pending.
 
 `POST /api/billing/webhook` validates the HMAC over the bounded raw body with the separate webhook secret. It handles `payment.captured`, `order.paid` and `refund.processed`, re-fetching provider data before reconciliation. Capture/refund identifiers deduplicate retries across browser and webhook paths. Partial refunds accumulate safely; any refund revokes the related test entitlement. Refund-before-capture and delayed capture-after-refund deliveries are covered by integration tests.
 
-No endpoint takes card details, bank credentials or a client-supplied monetary amount. Direct records are reference statements, not verified payment receipts. Test payments do not change an exchange's existing direct-payment terms, order progress, handover or dispute status.
+No endpoint takes card details, bank credentials or a client-supplied monetary amount. Direct records are reference statements, not verified payment receipts. A manually approved sale/hardware payment releases the purchase to seller fulfillment. Rentals and services continue through their existing acceptance and handover steps.
 
 ## Database setup
 
-Apply `013_billing.sql` with the separate operator connection after tests pass. Existing application data and earlier migration checksums are preserved. New tables have RLS and no runtime direct-write grants.
+Apply migrations through `017_manual_upi_confirmation.sql` with the separate operator connection after tests pass. Existing application data and earlier migration checksums are preserved. New tables have RLS and no runtime direct-write grants.
 
 The ordinary `unicirq_app` role can quote, create records and perform administrator-checked configuration. It **cannot** attach provider orders, confirm captures, issue refunds or write entitlements. Those functions require a separate restricted `unicirq_billing_backend` NOLOGIN role. Through the trusted operator connection, grant it only to the existing restricted runtime login:
 

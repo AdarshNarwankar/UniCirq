@@ -7,7 +7,7 @@ import { demoState } from '../demo';
 import type { Profile } from '../domain';
 import { AppError } from '../policy';
 import type { BillingEntitlement, BillingRecord, BillingSelection, BillingSummary, BillingQuote, BillingGroupSelection, BillingGroupQuote } from '../billing';
-import { calculateBillingQuote } from '../billing';
+import { calculateBillingQuote, manualPayeeConfiguration } from '../billing';
 import { createRazorpayTestOrder, razorpayConfiguration, type RazorpayConfiguration } from '../razorpay';
 
 type BillingSettings = BillingSummary['settings'];
@@ -29,7 +29,9 @@ export async function withBillingService<T>(operation: (client: PoolClient) => P
 
 export function billingCapabilities(): BillingSummary['capabilities'] {
   const configured = !demoEnabled() && Boolean(razorpayConfiguration(process.env));
-  return { mode: 'test', configured, manual_upi: true, reason: configured
+  const manual_payee = !demoEnabled() ? manualPayeeConfiguration(process.env) : null;
+  return { mode: 'test', configured, manual_upi: Boolean(manual_payee), manual_payee, reason: manual_payee
+    ? 'Pay UniCirq by UPI and submit the transaction ID. Payment is confirmed after administrator review. Seller payouts are handled separately.' : configured
     ? 'Razorpay test mode only. No real money, seller payout, deposit or insurance is provided.'
     : demoEnabled() ? 'Local sample billing. Connect Razorpay test credentials to try provider checkout.'
       : 'Razorpay test checkout needs its test key ID, private key secret and webhook secret. Free direct records and pilot plans remain available.' };
@@ -78,6 +80,7 @@ export async function billingSummary(actor: Profile, cursor?: string): Promise<B
 }
 
 export async function billingQuote(actor: Profile, selection: BillingSelection): Promise<BillingQuote> {
+  if (selection.purpose === 'order' && selection.reference_id) return billingGroupQuote(actor, { purpose: 'order_group', order_ids: [selection.reference_id], payment_mode: selection.payment_mode });
   if (demoEnabled()) return demoQuote(actor, selection);
   const existing = await findExistingBilling(actor, selection);
   if (existing) return existing.quote;
@@ -133,11 +136,12 @@ export async function createBillingGroup(actor: Profile, selection: BillingGroup
   const quote = await billingGroupQuote(actor, selection);
   const configuration = razorpayConfiguration(process.env);
   if (selection.payment_mode === 'checkout' && (quote.buyer_total ?? 0) > 0 && !configuration) {
+    if (!manualPayeeConfiguration(process.env)) throw new AppError('UniCirq’s receiving UPI account is not configured yet.', 503);
     const record = await withUser(actor.id, async client => (await client.query(
       'SELECT app_billing_group_create($1::jsonb) AS record',
       [JSON.stringify({ order_ids: selection.order_ids, payment_mode: selection.payment_mode })],
     )).rows[0].record as BillingRecord);
-    return { record };
+    return { record: await prepareManualPayment(record, actor.id) };
   }
   const record = await withUser(actor.id, async client => (await client.query(
     'SELECT app_billing_group_create($1::jsonb) AS record',
@@ -153,7 +157,7 @@ async function findExistingBilling(actor: Profile, selection: BillingSelection):
     const reference = selection.purpose === 'business_plan' ? 'plan=$4' : 'reference_id=$4::uuid';
     const result = await client.query<BillingRecord>(`SELECT * FROM billing_records record WHERE owner_id=$1 AND purpose=$2 AND payment_mode=$3 AND ${reference}
       AND (purpose='order' OR status IN('quoted','pending') OR EXISTS(SELECT FROM billing_entitlements access WHERE access.billing_id=record.id AND access.expires_at>now()))
-      AND NOT(status='quoted' AND provider_order_id IS NULL AND expires_at<now()) ORDER BY created_at DESC,id DESC LIMIT 1`,
+      AND NOT(status='quoted' AND provider_mode<>'upi_manual' AND provider_order_id IS NULL AND expires_at<now()) ORDER BY created_at DESC,id DESC LIMIT 1`,
       [actor.id, selection.purpose, selection.payment_mode, selection.purpose === 'business_plan' ? selection.plan : selection.reference_id]);
     return result.rows[0] ?? null;
   });
@@ -166,6 +170,7 @@ export async function configureBilling(actor: Profile, settings: { tax_bps: numb
 }
 
 export async function createBilling(actor: Profile, selection: BillingSelection) {
+  if (selection.purpose === 'order' && selection.reference_id) return createBillingGroup(actor, { purpose: 'order_group', order_ids: [selection.reference_id], payment_mode: selection.payment_mode });
   if (demoEnabled()) {
     const quote = demoQuote(actor, selection);
     if (quote.platform_fee > 0 && selection.payment_mode === 'checkout') throw new AppError(billingCapabilities().reason, 503);
@@ -178,8 +183,7 @@ export async function createBilling(actor: Profile, selection: BillingSelection)
   // authoritative quote is recalculated inside the database creation function.
   const configuration = razorpayConfiguration(process.env);
   if (selection.payment_mode === 'checkout' && (quote.buyer_total ?? 0) > 0 && !configuration) {
-    const record = await withUser(actor.id, async client => (await client.query('SELECT app_billing_create($1::jsonb) AS record', [JSON.stringify(selection)])).rows[0].record as BillingRecord);
-    return { record };
+    throw new AppError('Paid promotions are not available yet. No payment has been requested.', 503);
   }
   const record = await withUser(actor.id, async client => (await client.query('SELECT app_billing_create($1::jsonb) AS record', [JSON.stringify(selection)])).rows[0].record as BillingRecord);
   if (record.status === 'recorded' || record.status === 'paid' || record.status === 'refunded') return { record };
@@ -198,9 +202,10 @@ export async function resumeBilling(actor: Profile, billingId: string) {
   if (!actor.verified || actor.college_id !== record.college_id || actor.role !== (record.purpose === 'business_plan' ? 'business' : 'student')) {
     throw new AppError('Verified access for this billing record is required.', 403);
   }
+  if (record.provider_mode === 'upi_manual') return { record: await prepareManualPayment(record, actor.id) };
   if (!record.provider_order_id && new Date(record.expires_at).getTime() < Date.now()) throw new AppError('This quote expired before checkout. Prepare a new quote.', 409);
   const configuration = razorpayConfiguration(process.env);
-  if (!configuration) return { record };
+  if (!configuration) return { record: await prepareManualPayment(record, actor.id) };
   return prepareCheckout(record.id, actor.id, configuration);
 }
 
@@ -219,6 +224,18 @@ async function prepareCheckout(billingId: string, ownerId: string, configuration
     }
     return { record, checkout: { key: configuration.keyId, amount, currency: 'INR' as const, order_id: record.provider_order_id!, name: 'UniCirq', description: record.quote.description + ' · TEST', billing_id: record.id } };
   });
+}
+
+async function prepareManualPayment(record: BillingRecord, ownerId: string): Promise<BillingRecord> {
+  if (['paid', 'refunded', 'recorded', 'manual_pending'].includes(record.status)) return record;
+  if (record.manual_upi_id && record.manual_payee_name) return record;
+  if (record.purpose !== 'order') throw new AppError('Paid promotions are not available yet. No payment has been requested.', 503);
+  const payee = manualPayeeConfiguration(process.env);
+  if (!payee) throw new AppError('UniCirq’s receiving UPI account is not configured yet.', 503);
+  return withBillingService(async client => (await client.query(
+    'SELECT app_billing_prepare_manual($1,$2,$3,$4) AS record',
+    [record.id, ownerId, payee.upi_id, payee.name],
+  )).rows[0].record as BillingRecord);
 }
 
 export async function ownedBillingRecord(actor: Profile, billingId: string): Promise<BillingRecord> {
@@ -244,6 +261,7 @@ export function billingFailure(error: unknown): AppError {
   if (error instanceof AppError) return error;
   const code = (error as { code?: string })?.code;
   if (code === '42501') return new AppError('You do not have access to this billing action.', 403);
+  if (code === '23505') return new AppError('That transaction ID is already linked to another payment. Check the reference in your UPI app.', 409);
   // Database messages are controlled SQL validation, never raw provider errors.
   if (code === 'P0001') return new AppError((error as Error).message, 409);
   if (code === '55P03' || code === '57014') return new AppError('This billing action is being processed. Retry shortly.', 409);

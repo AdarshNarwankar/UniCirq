@@ -13,7 +13,7 @@ const actionSchema = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('resume'), billing_id: z.string().uuid() }),
   z.strictObject({ action: z.literal('settings'), settings: z.strictObject({ tax_bps: z.number().int().min(0).max(10000).nullable(), business_pilot: z.boolean(), reason: z.string().trim().min(5).max(500) }) }),
   z.strictObject({ action: z.literal('manual_submit'), billing_id: z.string().uuid(), utr: z.string().trim().regex(/^[A-Za-z0-9]{8,40}$/) }),
-  z.strictObject({ action: z.literal('manual_review'), billing_id: z.string().uuid(), decision: z.enum(['approve', 'reject']), note: z.string().trim().min(5).max(500) }),
+  z.strictObject({ action: z.literal('manual_review'), billing_id: z.string().uuid(), decision: z.enum(['approve', 'reject']), note: z.string().trim().min(5).max(500), receipt_checked: z.boolean().optional() }).refine(input => input.decision !== 'approve' || input.receipt_checked === true, { message: 'Confirm the bank receipt before approving.' }),
 ]);
 export async function GET(request: Request) {
   try {

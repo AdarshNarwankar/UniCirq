@@ -9,12 +9,12 @@ export interface DatabaseReadinessReport { ok: boolean; checks: ReadinessCheck[]
 export interface MigrationChecksum { name: string; checksum: string }
 
 export const authTables = ['user', 'session', 'account', 'verification', 'rateLimit'] as const;
-export const applicationTables = ['colleges', 'profiles', 'listings', 'listing_photos', 'student_requests', 'conversations', 'messages', 'orders', 'order_events', 'saved_items', 'support_tickets', 'notifications', 'verification_requests', 'business_profiles', 'deals', 'audit_logs', 'action_limits', 'billing_settings', 'billing_records', 'billing_entitlements', 'billing_events', 'billing_limits'] as const;
-const readableApplicationTables = applicationTables.filter(name => name !== 'action_limits' && name !== 'billing_limits');
-const appSelectTables = applicationTables.filter(name => name !== 'billing_limits');
+export const applicationTables = ['colleges', 'profiles', 'listings', 'listing_photos', 'student_requests', 'conversations', 'messages', 'orders', 'order_events', 'saved_items', 'support_tickets', 'notifications', 'verification_requests', 'business_profiles', 'deals', 'audit_logs', 'action_limits', 'billing_settings', 'billing_records', 'billing_entitlements', 'billing_events', 'billing_limits', 'billing_manual_references'] as const;
+const readableApplicationTables = applicationTables.filter(name => name !== 'action_limits' && name !== 'billing_limits' && name !== 'billing_manual_references');
+const appSelectTables = applicationTables.filter(name => name !== 'billing_limits' && name !== 'billing_manual_references');
 const accessFunctions = ['app_user_id()', 'app_is_admin()', 'app_campus()', 'app_active()', 'app_participant(uuid)', 'app_order_listing(uuid)', 'app_conversation_listing(uuid)', 'unicirq_command(jsonb)', 'app_choose_university(jsonb)', 'app_create_listing_with_photo(jsonb,bytea)', 'app_billing_quote(jsonb)', 'app_billing_create(jsonb)', 'app_billing_configure(jsonb)'];
 const authOnlyFunctions = ['app_apply_university_email_verification(uuid)', 'app_refresh_university_email_verification()', 'create_student_profile()', 'app_billing_grant(uuid)'];
-const billingBackendFunctions = ['app_billing_backend_record(uuid)', 'app_billing_gateway_record(text)', 'app_billing_attach(uuid,text)', 'app_billing_capture(uuid,text,text,bigint,text,text)', 'app_billing_refund(uuid,text,bigint,text)', 'app_billing_limit(text,integer,integer)'];
+const billingBackendFunctions = ['app_billing_backend_record(uuid)', 'app_billing_gateway_record(text)', 'app_billing_attach(uuid,text)', 'app_billing_capture(uuid,text,text,bigint,text,text)', 'app_billing_refund(uuid,text,bigint,text)', 'app_billing_limit(text,integer,integer)', 'app_billing_prepare_manual(uuid,uuid,text,text)'];
 const forbiddenRoles = ['pg_read_all_data', 'pg_write_all_data', 'pg_read_server_files', 'pg_write_server_files', 'pg_execute_server_program'];
 
 function finish(checks: ReadinessCheck[]): DatabaseReadinessReport { return { ok: checks.every(check => check.ok), checks }; }

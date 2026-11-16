@@ -50,3 +50,14 @@ test('only captured records show reconciliation and refunds do not leave the ori
   const full = billSummaryView(quote, { status: 'refunded', payment_mode: 'checkout', refunded_amount: 105900 });
   assert.equal(full.refund?.remaining, 0); assert.equal(full.status, 'Fully refunded · test');
 });
+
+test('manual UPI statements distinguish unconfirmed IDs from real administrator confirmation', () => {
+  const quote = exchange('sale', 100000);
+  const base = { payment_mode: 'checkout' as const, refunded_amount: 0, provider_mode: 'upi_manual' as const };
+  const pending = billSummaryView(quote, { ...base, status: 'manual_pending' });
+  assert.equal(pending.tone, 'pending'); assert.equal(pending.refund, null);
+  const paid = billSummaryView(quote, { ...base, status: 'paid' });
+  assert.equal(paid.status, 'UPI payment confirmed by administrator');
+  assert.equal(paid.totalLabel, 'Original payment total');
+  assert.doesNotMatch(paid.note, /test mode|No real money/);
+});

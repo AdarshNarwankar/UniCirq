@@ -33,7 +33,7 @@ See [PostgreSQL + Prisma setup and live readiness checks](docs/PRODUCTION-SETUP.
 
 See [login, signup, Google and university onboarding](docs/AUTHENTICATION.md). Proven `@dypiu.ac.in` mailboxes can connect to DYPIU automatically; other students choose their university and request campus verification.
 
-See [billing rules, UPI/manual verification, Razorpay test setup and validation](docs/BILLING.md). Direct deals stay free; optional checkout applies the published 5% sale and 8% rental/service rates with a ₹19 minimum. Tax must be explicitly configured before paid checkout.
+See [billing rules, UPI/manual verification, Razorpay test setup and validation](docs/BILLING.md). Direct rental/service arrangements stay free; purchase checkout applies the published 5% sale and 8% rental/service rates with a ₹19 minimum. Tax must be explicitly configured before paid checkout.
 
 ## Database setup
 
@@ -97,7 +97,7 @@ Verify exactly one expected account changed. Users cannot promote themselves thr
 
 Import as a Next.js project, install with `npm ci` and build with `npm run build`. Select Node.js 22+ and set the runtime variables above. Apply migrations separately before enabling traffic; do not migrate during each Vercel build. Configure `APP_URL` for the environment's canonical origin. Use separate test database/email settings for previews.
 
-Apply billing migrations through `015_manual_upi_billing.sql` and the restricted backend role grant before publishing billing code. The project already has hosted database/authentication configuration; new environments still need their own setup. A build succeeds without secrets; UPI checkout requires the migrated database and an administrator for reconciliation. Razorpay live keys remain rejected.
+Apply billing migrations through `017_manual_upi_confirmation.sql` and the restricted backend role grant before publishing billing code. The project already has hosted database/authentication configuration; new environments still need their own setup. A build succeeds without secrets; UPI checkout requires the migrated database, `UPI_ID`, `UPI_PAYEE_NAME`, confirmed tax settings and an administrator for reconciliation. Paid promotions remain sandbox-only and are disabled for real UPI payments. Razorpay live keys remain rejected.
 
 ## Validation
 
